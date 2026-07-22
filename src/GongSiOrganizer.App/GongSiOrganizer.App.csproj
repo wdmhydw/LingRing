@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <AssemblyName>GongSiOrganizer</AssemblyName>
+    <RootNamespace>GongSiOrganizer.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.4.1</Version>
+    <FileVersion>0.4.1.0</FileVersion>
+    <Product>公司文件一键移动</Product>
+    <Authors>Local</Authors>
+    <Description>通过资源管理器右键级联菜单，将文件或文件夹直接移动到 E:\GongSi。</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Minimal\**\*.cs" />
+    <ProjectReference Include="..\GongSiOrganizer.Core\GongSiOrganizer.Core.csproj" />
+  </ItemGroup>
+</Project>

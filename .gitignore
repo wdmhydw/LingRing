@@ -1,0 +1,16 @@
+bin/
+obj/
+TestResults/
+artifacts/
+.vs/
+.idea/
+.design-references/
+.agents/
+.codex/
+design-qa.md
+*.user
+*.suo
+*.tmp
+*.log
+Thumbs.db
+.DS_Store

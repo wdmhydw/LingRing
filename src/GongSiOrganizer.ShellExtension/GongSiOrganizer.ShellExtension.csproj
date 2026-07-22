@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableComHosting>true</EnableComHosting>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <AssemblyName>GongSiOrganizer.ShellExtension.V4</AssemblyName>
+    <RootNamespace>GongSiOrganizer.ShellExtension</RootNamespace>
+    <Version>0.4.0</Version>
+    <FileVersion>0.4.0.0</FileVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption
+      Include="System.Runtime.InteropServices.COM.LoadComponentInDefaultContext"
+      Value="true" />
+  </ItemGroup>
+</Project>

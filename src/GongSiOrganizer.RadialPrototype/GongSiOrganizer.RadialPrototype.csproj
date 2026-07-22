@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>GongSiOrganizer.RadialPrototype</AssemblyName>
+    <RootNamespace>GongSiOrganizer.RadialPrototype</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\GongSiOrganizer.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <Version>0.5.3</Version>
+    <FileVersion>0.5.3.0</FileVersion>
+    <Product>文件快速归档</Product>
+    <Description>通过鼠标中键轮盘将文件或文件夹快速移动到归档目录。</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GongSiOrganizer.Core\GongSiOrganizer.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Assets\GongSiOrganizer.png" />
+    <Resource Include="Assets\GongSiOrganizer.png" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GongSiOrganizer.Core", "src\GongSiOrganizer.Core\GongSiOrganizer.Core.csproj", "{417F44E7-2C4F-4B64-BBA1-20D6D5165E0D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GongSiOrganizer.App", "src\GongSiOrganizer.App\GongSiOrganizer.App.csproj", "{D0A90110-A4A9-465B-8C6E-A6A0F9DCAC53}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GongSiOrganizer.Core.Tests", "tests\GongSiOrganizer.Core.Tests\GongSiOrganizer.Core.Tests.csproj", "{A4DE9B97-6C9C-4A5C-9E84-0CA7F1240D16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GongSiOrganizer.ShellExtension", "src\GongSiOrganizer.ShellExtension\GongSiOrganizer.ShellExtension.csproj", "{FF6AC247-7DCB-4BF8-9EA4-EBD9F31C572A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DF18B467-E96A-4B5C-80E8-0AA1055752C7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GongSiOrganizer.RadialPrototype", "src\GongSiOrganizer.RadialPrototype\GongSiOrganizer.RadialPrototype.csproj", "{1BA3AF86-EE23-4B1A-928F-C4702E1D830B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{417F44E7-2C4F-4B64-BBA1-20D6D5165E0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{417F44E7-2C4F-4B64-BBA1-20D6D5165E0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{417F44E7-2C4F-4B64-BBA1-20D6D5165E0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{417F44E7-2C4F-4B64-BBA1-20D6D5165E0D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D0A90110-A4A9-465B-8C6E-A6A0F9DCAC53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D0A90110-A4A9-465B-8C6E-A6A0F9DCAC53}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D0A90110-A4A9-465B-8C6E-A6A0F9DCAC53}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D0A90110-A4A9-465B-8C6E-A6A0F9DCAC53}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4DE9B97-6C9C-4A5C-9E84-0CA7F1240D16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4DE9B97-6C9C-4A5C-9E84-0CA7F1240D16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4DE9B97-6C9C-4A5C-9E84-0CA7F1240D16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4DE9B97-6C9C-4A5C-9E84-0CA7F1240D16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FF6AC247-7DCB-4BF8-9EA4-EBD9F31C572A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF6AC247-7DCB-4BF8-9EA4-EBD9F31C572A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF6AC247-7DCB-4BF8-9EA4-EBD9F31C572A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF6AC247-7DCB-4BF8-9EA4-EBD9F31C572A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BA3AF86-EE23-4B1A-928F-C4702E1D830B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BA3AF86-EE23-4B1A-928F-C4702E1D830B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BA3AF86-EE23-4B1A-928F-C4702E1D830B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BA3AF86-EE23-4B1A-928F-C4702E1D830B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1BA3AF86-EE23-4B1A-928F-C4702E1D830B} = {DF18B467-E96A-4B5C-80E8-0AA1055752C7}
+	EndGlobalSection
+EndGlobal
