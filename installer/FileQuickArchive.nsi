@@ -8,12 +8,12 @@ SetCompressorDictSize 64
 !include "LogicLib.nsh"
 
 !define PRODUCT_NAME "文件快速归档"
-!define PRODUCT_VERSION "0.5.3"
+!define PRODUCT_VERSION "0.5.4"
 !define PRODUCT_EXE "文件快速归档.exe"
 !define PRODUCT_KEY "Software\FileQuickArchive"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\FileQuickArchive"
 !define PROJECT_ROOT "${__FILEDIR__}\.."
-!define SOURCE_DIR "${PROJECT_ROOT}\artifacts\FileQuickArchive-0.5.3-win-x64"
+!define SOURCE_DIR "${PROJECT_ROOT}\artifacts\FileQuickArchive-0.5.4-win-x64"
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 OutFile "${PROJECT_ROOT}\artifacts\文件快速归档-${PRODUCT_VERSION}-安装程序.exe"
@@ -26,7 +26,7 @@ ShowUninstDetails show
 Icon "${PROJECT_ROOT}\src\GongSiOrganizer.RadialPrototype\Assets\GongSiOrganizer.ico"
 UninstallIcon "${PROJECT_ROOT}\src\GongSiOrganizer.RadialPrototype\Assets\GongSiOrganizer.ico"
 
-VIProductVersion "0.5.3.0"
+VIProductVersion "0.5.4.0"
 VIAddVersionKey /LANG=2052 "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=2052 "FileDescription" "${PRODUCT_NAME} 安装程序"
 VIAddVersionKey /LANG=2052 "FileVersion" "${PRODUCT_VERSION}"

@@ -9,8 +9,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\GongSiOrganizer.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <Version>0.5.3</Version>
-    <FileVersion>0.5.3.0</FileVersion>
+    <Version>0.5.4</Version>
+    <FileVersion>0.5.4.0</FileVersion>
     <Product>文件快速归档</Product>
     <Description>通过鼠标中键轮盘将文件或文件夹快速移动到归档目录。</Description>
   </PropertyGroup>

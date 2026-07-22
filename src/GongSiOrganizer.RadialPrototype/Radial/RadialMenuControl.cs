@@ -96,6 +96,7 @@ internal sealed class RadialMenuControl : FrameworkElement
     public RadialMenuControl()
     {
         Focusable = true;
+        FocusVisualStyle = null;
         Cursor = Cursors.Arrow;
         _folderIcon = ShellIconProvider.LoadFolderIcon();
         _hoverTimer = new DispatcherTimer(DispatcherPriority.Input)

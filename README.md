@@ -10,7 +10,30 @@
 
 [前往 Releases 下载最新版 Windows 安装版或便携版](https://github.com/wdmhydw/FileQuickArchive/releases/latest)
 
-当前版本：`v0.5.3`。发行包面向 Windows x64，并已在 Windows 11 上完成实际桌面验证。
+当前版本：`v0.5.4`。发行包面向 Windows x64，并已在 Windows 11 上完成实际桌面验证。
+
+## 界面预览
+
+<table>
+  <tr>
+    <td width="58%" align="center"><img src="docs/images/radial-wheel.png" alt="完整同心圆目录轮盘"></td>
+    <td width="42%" align="center"><img src="docs/images/corner-wheel.png" alt="桌面边角自适应轮盘"></td>
+  </tr>
+  <tr>
+    <td align="center">完整同心圆目录轮盘</td>
+    <td align="center">靠近屏幕边角时自动收拢</td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/images/onboarding.png" width="820" alt="文件快速归档新手引导">
+  <br>首次启动的新手引导
+</p>
+
+<p align="center">
+  <img src="docs/images/tray-menu.png" width="340" alt="文件快速归档托盘菜单">
+  <br>托盘设置菜单
+</p>
 
 ## 核心功能
 
@@ -73,4 +96,5 @@ dotnet publish src\GongSiOrganizer.RadialPrototype\GongSiOrganizer.RadialPrototy
 
 - [完整使用说明](docs/同心圆原型使用说明.txt)
 - [架构与安全说明](docs/架构与安全说明.md)
+- [v0.5.4 发行说明](docs/release-v0.5.4.md)
 - [v0.5.3 发行说明](docs/release-v0.5.3.md)
