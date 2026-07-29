@@ -76,4 +76,24 @@ public sealed class SubfolderCreationServiceTests
         Assert.Throws<DirectoryNotFoundException>(() =>
             _service.Create(workspace.Root, "不存在", "新目录"));
     }
+
+    [Fact]
+    public void Create_WorksInsideTheThisPcVirtualScope()
+    {
+        using var workspace = new TestWorkspace();
+        var parent = workspace.DirectoryAt("归档");
+        var parentToken = ArchiveScope.GetDestinationToken(
+            ArchiveScope.ThisPcRoot,
+            parent);
+
+        var result = _service.Create(
+            ArchiveScope.ThisPcRoot,
+            parentToken,
+            "新目录");
+
+        Assert.True(Directory.Exists(result.FullPath));
+        Assert.Equal(
+            Path.Combine(parentToken, "新目录"),
+            result.RelativePath);
+    }
 }

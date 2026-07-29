@@ -59,6 +59,43 @@ internal sealed class RadialOverlayWindow : Window
         ShowCore(placement, session, _sourceFiles.Count);
     }
 
+    public async Task ShowMenuAsync(
+        NativeScreenPoint point,
+        IReadOnlyList<string> sourceFiles,
+        FolderCatalogResult snapshot,
+        string? initialRelativePath,
+        CancellationToken cancellationToken)
+    {
+        _sourceFiles = sourceFiles
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        _isDemo = false;
+        var placement = NativeDisplay.CreatePlacement(point, false);
+        var session = new RadialMenuSession(snapshot.Folders);
+
+        if (!string.IsNullOrWhiteSpace(initialRelativePath))
+        {
+            var candidate = session;
+            var selection = candidate.SelectStartPathAsync(initialRelativePath);
+            try
+            {
+                var selected = await selection
+                    .WaitAsync(TimeSpan.FromMilliseconds(140), cancellationToken);
+                if (!selected) session = new RadialMenuSession(snapshot.Folders);
+            }
+            catch (TimeoutException)
+            {
+                // Keep the wheel instant on a sleeping HDD/removable disk.
+                // The abandoned lookup still warms the shared directory cache.
+                session = new RadialMenuSession(snapshot.Folders);
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ShowCore(placement, session, _sourceFiles.Count);
+    }
+
     public void ShowInvalid(NativeScreenPoint point)
     {
         _sourceFiles = [];
@@ -69,6 +106,7 @@ internal sealed class RadialOverlayWindow : Window
     public void HideOverlay()
     {
         if (IsVisible) Hide();
+        _control.ReleaseSession();
     }
 
     public bool PromptForFolderName(
@@ -92,11 +130,17 @@ internal sealed class RadialOverlayWindow : Window
         }
     }
 
-    public void RefreshMenu(FolderCatalogResult snapshot, string selectedRelativePath)
+    public async Task RefreshMenuAsync(
+        FolderCatalogResult snapshot,
+        string selectedRelativePath,
+        string? initialRelativePath = null)
     {
         if (!IsVisible || _placement is null) return;
         var session = new RadialMenuSession(snapshot.Folders);
-        _ = session.SelectPath(selectedRelativePath);
+        _ = await session.SelectPathAsync(
+            selectedRelativePath,
+            initialRelativePath);
+        if (!IsVisible || _placement is null) return;
         _control.Configure(_placement.Layout, session, _sourceFiles.Count);
         _control.Focus();
     }

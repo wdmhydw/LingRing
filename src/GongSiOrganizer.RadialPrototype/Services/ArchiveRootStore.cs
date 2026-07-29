@@ -6,7 +6,7 @@ namespace GongSiOrganizer.RadialPrototype.Services;
 
 internal sealed class ArchiveRootStore
 {
-    private const int CurrentVersion = 2;
+    private const int CurrentVersion = 4;
     private readonly object _gate = new();
     private readonly string _storagePath;
 
@@ -22,7 +22,24 @@ internal sealed class ArchiveRootStore
     {
         lock (_gate)
         {
-            return ReadUnsafe().ArchiveRoot;
+            var profile = ReadUnsafe().Profile;
+            if (profile is null) return null;
+            try
+            {
+                return ArchiveScope.GetNavigationSelectionPath(profile);
+            }
+            catch (Exception exception) when (IsStorageException(exception))
+            {
+                return profile.RootPath;
+            }
+        }
+    }
+
+    public ArchiveNavigationProfile? LoadProfile()
+    {
+        lock (_gate)
+        {
+            return ReadUnsafe().Profile;
         }
     }
 
@@ -36,25 +53,42 @@ internal sealed class ArchiveRootStore
 
     public bool Save(string rootPath)
     {
-        var root = CompanyArchive.NormalizeRoot(rootPath);
+        return Save(ArchiveScope.CreateNavigationProfile(rootPath));
+    }
+
+    public bool Save(ArchiveNavigationProfile profile)
+    {
+        var normalized = ArchiveScope.NormalizeNavigationProfile(
+            profile.RootPath,
+            profile.StartPath);
         lock (_gate)
         {
-            var settings = ReadUnsafe() with { ArchiveRoot = root };
+            var settings = ReadUnsafe() with { Profile = normalized };
             return WriteUnsafe(settings);
         }
     }
 
     public bool MarkOnboardingCompleted(string? currentRoot)
     {
+        ArchiveNavigationProfile? profile = null;
+        if (!string.IsNullOrWhiteSpace(currentRoot))
+            profile = ArchiveScope.CreateNavigationProfile(currentRoot);
+        return MarkOnboardingCompleted(profile);
+    }
+
+    public bool MarkOnboardingCompleted(ArchiveNavigationProfile? currentProfile)
+    {
         lock (_gate)
         {
             var settings = ReadUnsafe();
-            var normalizedRoot = !string.IsNullOrWhiteSpace(currentRoot)
-                ? CompanyArchive.NormalizeRoot(currentRoot)
-                : settings.ArchiveRoot;
+            var normalizedProfile = currentProfile is not null
+                ? ArchiveScope.NormalizeNavigationProfile(
+                    currentProfile.RootPath,
+                    currentProfile.StartPath)
+                : settings.Profile;
             return WriteUnsafe(settings with
             {
-                ArchiveRoot = normalizedRoot,
+                Profile = normalizedProfile,
                 OnboardingCompleted = true
             });
         }
@@ -74,7 +108,19 @@ internal sealed class ArchiveRootStore
             if (version == 1)
             {
                 var legacy = JsonSerializer.Deserialize<LegacySettingsDocument>(json);
-                return new StoredSettings(NormalizeOrNull(legacy?.ArchiveRoot), false);
+                return new StoredSettings(
+                    NormalizeProfileOrNull(legacy?.ArchiveRoot, null),
+                    false);
+            }
+
+            if (version is 2 or 3)
+            {
+                var legacy = JsonSerializer.Deserialize<LegacyCompletedSettingsDocument>(json);
+                return legacy is null
+                    ? StoredSettings.Empty
+                    : new StoredSettings(
+                        NormalizeProfileOrNull(legacy.ArchiveRoot, null),
+                        legacy.OnboardingCompleted);
             }
 
             if (version != CurrentVersion) return StoredSettings.Empty;
@@ -82,7 +128,9 @@ internal sealed class ArchiveRootStore
             return document is null
                 ? StoredSettings.Empty
                 : new StoredSettings(
-                    NormalizeOrNull(document.ArchiveRoot),
+                    NormalizeProfileOrNull(
+                        document.ArchiveRoot,
+                        document.StartPath),
                     document.OnboardingCompleted);
         }
         catch (Exception exception) when (IsStorageException(exception))
@@ -103,7 +151,8 @@ internal sealed class ArchiveRootStore
                 JsonSerializer.Serialize(
                     new SettingsDocument(
                         CurrentVersion,
-                        settings.ArchiveRoot,
+                        settings.Profile?.RootPath,
+                        settings.Profile?.StartPath,
                         settings.OnboardingCompleted),
                     new JsonSerializerOptions { WriteIndented = true }));
             File.Move(temporaryPath, _storagePath, true);
@@ -123,12 +172,14 @@ internal sealed class ArchiveRootStore
         }
     }
 
-    private static string? NormalizeOrNull(string? rootPath)
+    private static ArchiveNavigationProfile? NormalizeProfileOrNull(
+        string? rootPath,
+        string? startPath)
     {
         if (string.IsNullOrWhiteSpace(rootPath)) return null;
         try
         {
-            return CompanyArchive.NormalizeRoot(rootPath);
+            return ArchiveScope.NormalizeNavigationProfile(rootPath, startPath);
         }
         catch (Exception exception) when (
             exception is ArgumentException or NotSupportedException)
@@ -142,17 +193,26 @@ internal sealed class ArchiveRootStore
             UnauthorizedAccessException or
             JsonException or
             ArgumentException or
+            InvalidOperationException or
             NotSupportedException or
             System.Security.SecurityException;
 
     private sealed record SettingsDocument(
         int Version,
         string? ArchiveRoot,
+        string? StartPath,
         bool OnboardingCompleted);
 
     private sealed record LegacySettingsDocument(int Version, string? ArchiveRoot);
 
-    private sealed record StoredSettings(string? ArchiveRoot, bool OnboardingCompleted)
+    private sealed record LegacyCompletedSettingsDocument(
+        int Version,
+        string? ArchiveRoot,
+        bool OnboardingCompleted);
+
+    private sealed record StoredSettings(
+        ArchiveNavigationProfile? Profile,
+        bool OnboardingCompleted)
     {
         public static StoredSettings Empty { get; } = new(null, false);
     }

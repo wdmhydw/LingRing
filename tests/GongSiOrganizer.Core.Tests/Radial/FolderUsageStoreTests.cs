@@ -6,7 +6,7 @@ namespace GongSiOrganizer.Core.Tests.Radial;
 
 public sealed class FolderUsageStoreTests
 {
-    private const string DefaultRoot = @"E:\GongSi";
+    private const string DefaultRoot = ArchiveScope.ThisPcRoot;
 
     [Fact]
     public void GetPrefixes_ReturnsEveryLevelExactlyOnce()
@@ -110,9 +110,48 @@ public sealed class FolderUsageStoreTests
             "usage.json");
 
         var restored = new FolderUsageStore(storagePath);
-        var ranked = restored.Apply(Catalog(Node("公司甲"), Node("公司乙")));
+        var legacyStart = ArchiveScope
+            .CreateNavigationProfile(CompanyArchive.DefaultRoot)
+            .StartPath!;
+        var ranked = restored.Apply(Catalog(
+            new FolderMenuNode(
+                "公司甲",
+                Path.Combine(legacyStart, "公司甲"),
+                []),
+            new FolderMenuNode(
+                "公司乙",
+                Path.Combine(legacyStart, "公司乙"),
+                [])));
 
         Assert.Equal("公司乙", ranked.Folders[0].DisplayName);
+    }
+
+    [Fact]
+    public async Task Apply_DoesNotEagerlyLoadAsyncChildDirectories()
+    {
+        using var workspace = new TestWorkspace();
+        var store = new FolderUsageStore(Path.Combine(workspace.Root, "usage.json"));
+        var loadCount = 0;
+        var asyncChildren = new AsyncFolderMenuNodeList(() =>
+        {
+            loadCount++;
+            return Task.FromResult<IReadOnlyList<FolderMenuNode>>(
+                [new FolderMenuNode("资料", @"C\资料", [])]);
+        });
+        var catalog = new FolderCatalogResult(
+            ArchiveScope.ThisPcRoot,
+            [new FolderMenuNode("C: 本地磁盘", "C", asyncChildren)],
+            1,
+            0);
+
+        var ranked = store.Apply(catalog);
+
+        Assert.Equal(0, loadCount);
+        var transformed = Assert.IsType<AsyncFolderMenuNodeList>(
+            ranked.Folders[0].Children);
+        await transformed.EnsureLoadedAsync();
+        Assert.Equal(1, loadCount);
+        Assert.Equal("资料", transformed[0].DisplayName);
     }
 
     private static FolderCatalogResult Catalog(params FolderMenuNode[] nodes) =>

@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
+using GongSiOrganizer.Core;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
@@ -67,9 +68,9 @@ internal sealed class OnboardingWindow : Window
             ["左键确认并直接移动，不额外复制", "Ctrl + 左键在当前目标下新建文件夹", "点击轮盘外空白或按 Esc 取消"],
             GuideIllustration.Actions),
         new(
-            "选好归档目录，马上开始",
-            "先确认文件要归档到哪里，之后也能从托盘随时更改。",
-            ["选择一个长期使用的总目录", "程序会先读取子目录，成功后才切换", "其他运行设置都可以在托盘中调整"],
+            "选好轮盘起点，马上开始",
+            "“此电脑”是最高层，也可以从常用文件夹直接展开。",
+            ["最高层可在不同本地磁盘间归档", "向下选择的文件夹只是默认起点", "右键可逐级返回磁盘和“此电脑”"],
             GuideIllustration.Tray)
     ];
 
@@ -81,7 +82,7 @@ internal sealed class OnboardingWindow : Window
         _rootPath = rootPath;
         _chooseArchiveRoot = chooseArchiveRoot;
         _rootSelectionRequired = rootSelectionRequired;
-        _hasValidArchiveRoot = Directory.Exists(rootPath);
+        _hasValidArchiveRoot = ArchiveScope.IsAvailable(rootPath);
         Title = "文件快速归档 · 新手引导";
         Width = 760;
         Height = 520;
@@ -142,25 +143,25 @@ internal sealed class OnboardingWindow : Window
 
         _rootSetupPath = new TextBlock
         {
-            Text = _rootPath,
+            Text = ArchiveScope.GetDisplayName(_rootPath),
             Margin = new Thickness(0, 4, 8, 0),
             FontSize = 10.2,
             FontWeight = FontWeights.SemiBold,
             Foreground = UiVisuals.Brush(UiVisuals.TextPrimary),
             TextTrimming = TextTrimming.CharacterEllipsis,
-            ToolTip = _rootPath
+            ToolTip = ArchiveScope.GetDisplayName(_rootPath)
         };
         _rootSetupStatus = new TextBlock
         {
             Text = _rootSelectionRequired && !_hasValidArchiveRoot
-                ? "请先选择归档位置，设置成功后才能开始"
-                : "选择后会先读取目录，成功才会切换",
+                ? "请先选择轮盘起点，设置成功后才能开始"
+                : "层级关系：此电脑 › 本地磁盘 › 文件夹",
             Margin = new Thickness(0, 5, 0, 0),
             FontSize = 8.8,
             Foreground = UiVisuals.Brush(UiVisuals.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis
         };
-        _chooseRootButton = UiVisuals.CreateButton("选择位置", false, 70, 28);
+        _chooseRootButton = UiVisuals.CreateButton("选择起点", false, 70, 28);
         _chooseRootButton.Padding = new Thickness(8, 2, 8, 2);
         _chooseRootButton.FontSize = 9.5;
         _chooseRootButton.IsEnabled = _chooseArchiveRoot is not null;
@@ -174,7 +175,7 @@ internal sealed class OnboardingWindow : Window
         rootSetupGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var rootSetupLabel = new TextBlock
         {
-            Text = "目标归档文件夹",
+            Text = "轮盘默认起点",
             FontSize = 9.3,
             Foreground = UiVisuals.Brush(UiVisuals.TextSecondary)
         };
@@ -231,7 +232,7 @@ internal sealed class OnboardingWindow : Window
             HorizontalAlignment = WpfHorizontalAlignment.Right
         };
         _skipButton = UiVisuals.CreateButton(
-            _rootSelectionRequired ? "设置归档目录" : "跳过引导",
+            _rootSelectionRequired ? "设置轮盘起点" : "跳过引导",
             false,
             _rootSelectionRequired ? 102 : 82,
             36);
@@ -399,7 +400,7 @@ internal sealed class OnboardingWindow : Window
         if (_chooseArchiveRoot is null || !_chooseRootButton.IsEnabled) return;
 
         SetRootSelectionBusy(true);
-        _rootSetupStatus.Text = "请选择文件夹，读取完成前不会改变当前设置";
+        _rootSetupStatus.Text = "请选择轮盘起点，读取完成前不会改变当前设置";
         _rootSetupStatus.Foreground = UiVisuals.Brush(UiVisuals.TextSecondary);
         var wasTopmost = Topmost;
         Topmost = false;
@@ -409,7 +410,7 @@ internal sealed class OnboardingWindow : Window
             if (result.Cancelled)
             {
                 _rootSetupStatus.Text = _rootSelectionRequired && !_hasValidArchiveRoot
-                    ? "尚未设置归档位置，请重新选择"
+                    ? "尚未设置轮盘起点，请重新选择"
                     : "未做更改，继续使用当前目录";
                 _rootSetupStatus.Foreground = UiVisuals.Brush(UiVisuals.TextSecondary);
                 return;
@@ -426,10 +427,10 @@ internal sealed class OnboardingWindow : Window
 
             _rootPath = result.RootPath;
             _hasValidArchiveRoot = true;
-            _rootSetupPath.Text = _rootPath;
-            _rootSetupPath.ToolTip = _rootPath;
+            _rootSetupPath.Text = ArchiveScope.GetDisplayName(_rootPath);
+            _rootSetupPath.ToolTip = ArchiveScope.GetDisplayName(_rootPath);
             _rootSetupStatus.Text = string.IsNullOrWhiteSpace(result.Message)
-                ? "目录设置成功"
+                ? "轮盘起点设置成功"
                 : result.Message;
             _rootSetupStatus.Foreground = UiVisuals.Brush(Color.FromRgb(45, 139, 94));
             _illustrationHost.Children.Clear();
@@ -451,7 +452,7 @@ internal sealed class OnboardingWindow : Window
     private void SetRootSelectionBusy(bool busy)
     {
         _rootSelectionInProgress = busy;
-        _chooseRootButton.Content = busy ? "正在读取…" : "选择位置";
+        _chooseRootButton.Content = busy ? "正在读取…" : "选择起点";
         _chooseRootButton.IsEnabled = !busy && _chooseArchiveRoot is not null;
         _skipButton.IsEnabled = !busy;
         _backButton.IsEnabled = !busy;
@@ -735,13 +736,13 @@ internal sealed class OnboardingWindow : Window
             Background = UiVisuals.Brush(UiVisuals.SurfaceMuted),
             Child = new TextBlock
             {
-                Text = _rootPath,
+                Text = ArchiveScope.GetDisplayName(_rootPath),
                 FontSize = 9.5,
                 Foreground = UiVisuals.Brush(UiVisuals.TextPrimary),
                 TextTrimming = TextTrimming.CharacterEllipsis
             }
         });
-        foreach (var label in new[] { "更改归档根目录", "新手引导", "暂停中键监听" })
+        foreach (var label in new[] { "更改轮盘默认起点", "新手引导", "暂停中键监听" })
         {
             panel.Children.Add(new Border
             {
@@ -808,7 +809,7 @@ internal sealed class OnboardingWindow : Window
                 _pageIndex = Pages.Length - 1;
                 RenderPage(true, 1);
             }
-            _rootSetupStatus.Text = "请先选择一个有效的目标归档文件夹";
+            _rootSetupStatus.Text = "请先选择一个有效的轮盘起点";
             _rootSetupStatus.Foreground = UiVisuals.Brush(Color.FromRgb(190, 70, 66));
             _chooseRootButton.Focus();
             return;

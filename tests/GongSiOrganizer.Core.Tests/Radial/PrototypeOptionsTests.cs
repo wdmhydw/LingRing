@@ -1,4 +1,5 @@
 using GongSiOrganizer.RadialPrototype;
+using GongSiOrganizer.Core;
 using Xunit;
 
 namespace GongSiOrganizer.Core.Tests.Radial;
@@ -10,7 +11,8 @@ public sealed class PrototypeOptionsTests
     {
         var options = PrototypeOptions.Parse([]);
 
-        Assert.Equal(Path.GetFullPath(@"E:\GongSi"), options.RootPath);
+        Assert.Equal(ArchiveScope.ThisPcRoot, options.RootPath);
+        Assert.Null(options.StartPath);
         Assert.False(options.RootWasSpecified);
     }
 
@@ -21,12 +23,29 @@ public sealed class PrototypeOptionsTests
 
         var options = PrototypeOptions.Parse(["--root", workspace.Root]);
 
-        Assert.Equal(Path.GetFullPath(workspace.Root), options.RootPath);
+        Assert.Equal(ArchiveScope.ThisPcRoot, options.RootPath);
+        Assert.Equal(
+            ArchiveScope.GetDestinationToken(
+                ArchiveScope.ThisPcRoot,
+                workspace.Root),
+            options.StartPath);
+        Assert.True(options.RootWasSpecified);
+    }
+
+    [Fact]
+    public void Parse_ThisPcRoot_RemainsVirtual()
+    {
+        var options = PrototypeOptions.Parse(
+            ["--root", ArchiveScope.ThisPcRoot]);
+
+        Assert.Equal(ArchiveScope.ThisPcRoot, options.RootPath);
+        Assert.Null(options.StartPath);
         Assert.True(options.RootWasSpecified);
     }
 
     [Theory]
     [InlineData("--demo-onboarding")]
+    [InlineData("--demo-root-choice")]
     [InlineData("--demo-tray-menu")]
     public void Parse_VisualReviewModes_SuppressAutomaticOnboarding(string argument)
     {

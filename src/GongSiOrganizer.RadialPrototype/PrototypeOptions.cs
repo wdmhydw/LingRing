@@ -1,9 +1,11 @@
 using System.IO;
+using GongSiOrganizer.Core;
 
 namespace GongSiOrganizer.RadialPrototype;
 
 internal sealed record PrototypeOptions(
     string RootPath,
+    string? StartPath,
     bool RootWasSpecified,
     bool Demo,
     bool DemoCorner,
@@ -12,6 +14,7 @@ internal sealed record PrototypeOptions(
     bool DemoFolderDialog,
     bool DemoOnboarding,
     int DemoOnboardingPage,
+    bool DemoRootChoice,
     bool DemoTrayMenu,
     bool DemoScroll,
     bool DemoScrollTwice,
@@ -28,6 +31,7 @@ internal sealed record PrototypeOptions(
         DemoToast ||
         DemoFolderDialog ||
         DemoOnboarding ||
+        DemoRootChoice ||
         DemoTrayMenu ||
         DemoScroll ||
         DemoScrollTwice ||
@@ -36,13 +40,13 @@ internal sealed record PrototypeOptions(
 
     public static PrototypeOptions Parse(IReadOnlyList<string> args)
     {
-        var root = @"E:\GongSi";
+        var profile = ArchiveNavigationProfile.WholeComputer;
         var rootWasSpecified = false;
         for (var index = 0; index < args.Count - 1; index++)
         {
             if (args[index].Equals("--root", StringComparison.OrdinalIgnoreCase))
             {
-                root = args[index + 1];
+                profile = ArchiveScope.CreateNavigationProfile(args[index + 1]);
                 rootWasSpecified = true;
             }
         }
@@ -86,7 +90,8 @@ internal sealed record PrototypeOptions(
         }
 
         return new PrototypeOptions(
-            Path.GetFullPath(root),
+            profile.RootPath,
+            profile.StartPath,
             rootWasSpecified,
             args.Any(value => value.Equals("--demo", StringComparison.OrdinalIgnoreCase)),
             args.Any(value => value.Equals("--demo-corner", StringComparison.OrdinalIgnoreCase)),
@@ -95,6 +100,7 @@ internal sealed record PrototypeOptions(
             args.Any(value => value.Equals("--demo-folder-dialog", StringComparison.OrdinalIgnoreCase)),
             args.Any(value => value.Equals("--demo-onboarding", StringComparison.OrdinalIgnoreCase)),
             demoOnboardingPage,
+            args.Any(value => value.Equals("--demo-root-choice", StringComparison.OrdinalIgnoreCase)),
             args.Any(value => value.Equals("--demo-tray-menu", StringComparison.OrdinalIgnoreCase)),
             args.Any(value => value.Equals("--demo-scroll", StringComparison.OrdinalIgnoreCase)),
             args.Any(value => value.Equals("--demo-scroll-twice", StringComparison.OrdinalIgnoreCase)),

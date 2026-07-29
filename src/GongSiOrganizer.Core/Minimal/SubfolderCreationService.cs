@@ -22,14 +22,15 @@ public sealed class SubfolderCreationService
         string parentRelativePath,
         string requestedName)
     {
-        var root = CompanyArchive.NormalizeRoot(rootPath);
-        var parent = CompanyArchive.ResolveDestination(root, parentRelativePath);
+        var root = ArchiveScope.Normalize(rootPath);
+        var parent = ArchiveScope.ResolveDestination(root, parentRelativePath);
         if (!Directory.Exists(parent))
             throw new DirectoryNotFoundException("所选父文件夹已不存在，请刷新目录后重试。");
 
         var name = ValidateName(requestedName);
-        var destination = Path.GetFullPath(Path.Combine(parent, name));
-        if (!CompanyArchive.IsWithinRoot(destination, root))
+        var childToken = ArchiveScope.CombineDestinationToken(root, parentRelativePath, name);
+        var destination = ArchiveScope.ResolveDestination(root, childToken);
+        if (!ArchiveScope.IsThisPc(root) && !CompanyArchive.IsWithinRoot(destination, root))
             throw new InvalidOperationException("新文件夹路径越出了公司目录，操作已阻止。");
         if (Directory.Exists(destination) || File.Exists(destination))
             throw new IOException($"“{name}”已经存在，请换一个名称。");
@@ -37,7 +38,7 @@ public sealed class SubfolderCreationService
         Directory.CreateDirectory(destination);
         return new SubfolderCreationResult(
             destination,
-            Path.GetRelativePath(root, destination),
+            childToken,
             name);
     }
 

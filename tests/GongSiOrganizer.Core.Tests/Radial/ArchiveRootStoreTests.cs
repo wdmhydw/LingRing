@@ -1,4 +1,5 @@
 using GongSiOrganizer.RadialPrototype.Services;
+using GongSiOrganizer.Core;
 using Xunit;
 
 namespace GongSiOrganizer.Core.Tests.Radial;
@@ -98,5 +99,62 @@ public sealed class ArchiveRootStoreTests
 
         Assert.Equal(archiveRoot, restored.Load());
         Assert.False(restored.IsOnboardingCompleted());
+    }
+
+    [Fact]
+    public void SaveAndLoad_PreservesTheThisPcVirtualRoot()
+    {
+        using var workspace = new TestWorkspace();
+        var storagePath = Path.Combine(workspace.Root, "settings.json");
+        var store = new ArchiveRootStore(storagePath);
+
+        Assert.True(store.Save(ArchiveScope.ThisPcRoot));
+
+        Assert.Equal(
+            ArchiveScope.ThisPcRoot,
+            new ArchiveRootStore(storagePath).Load());
+    }
+
+    [Fact]
+    public void VersionThreeFolderRoot_MigratesToThisPcWithADefaultStart()
+    {
+        using var workspace = new TestWorkspace();
+        var archiveRoot = workspace.DirectoryAt("legacy");
+        var storagePath = workspace.FileAt(
+            $$"""
+            {
+              "Version": 3,
+              "ArchiveRoot": "{{archiveRoot.Replace("\\", "\\\\")}}",
+              "OnboardingCompleted": true
+            }
+            """,
+            "settings.json");
+
+        var restored = new ArchiveRootStore(storagePath);
+        var profile = Assert.IsType<ArchiveNavigationProfile>(
+            restored.LoadProfile());
+
+        Assert.Equal(ArchiveScope.ThisPcRoot, profile.RootPath);
+        Assert.NotNull(profile.StartPath);
+        Assert.Equal(
+            Path.TrimEndingDirectorySeparator(archiveRoot),
+            Path.TrimEndingDirectorySeparator(
+                ArchiveScope.GetNavigationSelectionPath(profile)),
+            ignoreCase: true);
+        Assert.True(restored.IsOnboardingCompleted());
+    }
+
+    [Fact]
+    public void UnifiedProfile_PersistsTheDefaultStartToken()
+    {
+        using var workspace = new TestWorkspace();
+        var storagePath = Path.Combine(workspace.Root, "settings.json");
+        var profile = ArchiveScope.CreateNavigationProfile(
+            workspace.DirectoryAt("默认起点"));
+        var store = new ArchiveRootStore(storagePath);
+
+        Assert.True(store.Save(profile));
+
+        Assert.Equal(profile, new ArchiveRootStore(storagePath).LoadProfile());
     }
 }

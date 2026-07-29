@@ -53,12 +53,21 @@ public partial class App : System.Windows.Application
         {
             if (!_options.RootWasSpecified)
             {
-                var storedRoot = _archiveRootStore.Load();
-                if (!string.IsNullOrWhiteSpace(storedRoot))
-                    _options = _options with { RootPath = storedRoot };
+                var storedProfile = _archiveRootStore.LoadProfile();
+                if (storedProfile is not null)
+                {
+                    _options = _options with
+                    {
+                        RootPath = storedProfile.RootPath,
+                        StartPath = storedProfile.StartPath
+                    };
+                    // Rewrites v1-v3 fixed-folder settings as the unified
+                    // "This PC + default start" profile when possible.
+                    _ = _archiveRootStore.Save(storedProfile);
+                }
             }
 
-            if (!Directory.Exists(_options.RootPath))
+            if (!ArchiveScope.IsAvailable(_options.RootPath))
             {
                 startupOnboardingShown = true;
                 var startAtRootPage = _archiveRootStore.IsOnboardingCompleted();
@@ -108,7 +117,7 @@ public partial class App : System.Windows.Application
                 ShowOnboarding,
                 paused => _paused = paused,
                 RequestShutdown,
-                _options.RootPath);
+                GetSelectionPath(_options));
             CaptureTrace("tray created");
 
             if (_options.DemoTrayMenu)
@@ -124,10 +133,29 @@ public partial class App : System.Windows.Application
                 return;
             }
 
+            if (_options.DemoRootChoice)
+            {
+                var rootChoice = ArchiveRootChoiceWindow.CreateForPreview(
+                    GetSelectionPath(_options));
+                rootChoice.Show();
+                if (!string.IsNullOrWhiteSpace(_options.CapturePath))
+                {
+                    await Task.Delay(_options.CaptureDelayMilliseconds);
+                    await Dispatcher.InvokeAsync(
+                        () => { },
+                        DispatcherPriority.ApplicationIdle);
+                    rootChoice.SaveSnapshot(_options.CapturePath);
+                }
+
+                rootChoice.Close();
+                Shutdown();
+                return;
+            }
+
             if (_options.DemoOnboarding)
             {
                 var demoGuide = new OnboardingWindow(
-                    _options.RootPath,
+                    GetSelectionPath(_options),
                     ChooseArchiveRootFromOnboardingAsync);
                 demoGuide.Show();
                 demoGuide.ShowPageForPreview(_options.DemoOnboardingPage);
@@ -239,12 +267,14 @@ public partial class App : System.Windows.Application
             {
                 var resolution = await _targetResolver.ResolveAsync(hitContext, token);
                 if (token.IsCancellationRequested) return;
-                var snapshot = _directoryCache?.Snapshot;
+                var snapshot = _directoryCache?.CreateMenuSnapshot();
                 if (resolution.IsFileSystemItem && resolution.ItemPaths.Count > 0 && snapshot is not null)
-                    _overlay.ShowMenu(
+                    await _overlay.ShowMenuAsync(
                         hitContext.Point,
                         resolution.ItemPaths,
-                        _usageStore.Apply(snapshot));
+                        _usageStore.Apply(snapshot),
+                        _options?.StartPath,
+                        token);
                 else
                     _overlay.ShowInvalid(hitContext.Point);
             }
@@ -277,7 +307,7 @@ public partial class App : System.Windows.Application
 
     private void ShowDemo(NativeScreenPoint point)
     {
-        var snapshot = _directoryCache?.Snapshot;
+        var snapshot = _directoryCache?.CreateMenuSnapshot();
         if (snapshot is null || _overlay is null) return;
         _overlay.ShowMenu(point, ["演示文件.pptx"], _usageStore.Apply(snapshot), true);
     }
@@ -290,7 +320,9 @@ public partial class App : System.Windows.Application
             await _directoryCache.ReloadAsync();
             _tray?.ShowStatus(
                 "目录已刷新",
-                $"当前缓存 {_directoryCache.Snapshot?.FolderCount ?? 0:N0} 个目录。");
+                DescribeCatalog(
+                    _options,
+                    _directoryCache.Snapshot?.FolderCount ?? 0));
         }
         catch (Exception exception)
         {
@@ -306,7 +338,7 @@ public partial class App : System.Windows.Application
         if (options is null || sourceFiles.Count == 0) return;
         if (_rootChangeInProgress)
         {
-            _tray?.ShowWarning("正在切换归档目录", "目录读取完成后再移动文件。");
+            _tray?.ShowWarning("正在切换轮盘起点", "目录读取完成后再移动文件。");
             return;
         }
         if (_moveInProgress)
@@ -347,8 +379,12 @@ public partial class App : System.Windows.Application
             if (result.Failures.Count == 0)
             {
                 var destinationLabel = result.Moved.Count == 1
-                    ? Path.GetRelativePath(options.RootPath, result.Moved[0].DestinationPath)
-                    : relativeDestination;
+                    ? ArchiveScope.GetDestinationDisplayPath(
+                        options.RootPath,
+                        result.Moved[0].DestinationPath)
+                    : ArchiveScope.IsThisPc(options.RootPath)
+                        ? ArchiveScope.ResolveDestination(options.RootPath, relativeDestination)
+                        : relativeDestination;
                 _tray?.ShowMoveSuccess(
                     "移动完成",
                     $"已移动 {result.Moved.Count} 项  →  {destinationLabel}");
@@ -444,9 +480,12 @@ public partial class App : System.Windows.Application
             try
             {
                 await directoryCache.ReloadAsync();
-                var snapshot = directoryCache.Snapshot;
+                var snapshot = directoryCache.CreateMenuSnapshot();
                 if (snapshot is not null)
-                    overlay.RefreshMenu(_usageStore.Apply(snapshot), created.RelativePath);
+                    await overlay.RefreshMenuAsync(
+                        _usageStore.Apply(snapshot),
+                        created.RelativePath,
+                        options.StartPath);
             }
             catch (Exception exception)
             {
@@ -473,7 +512,7 @@ public partial class App : System.Windows.Application
         _usageStore.Clear(rootPath);
         _tray?.ShowStatus(
             "常用排序已重置",
-            "当前归档根目录将根据新的移动选择重新累计。");
+            "所有磁盘和文件夹将根据新的移动选择重新累计。");
     }
 
     private async void ChangeArchiveRoot()
@@ -483,7 +522,7 @@ public partial class App : System.Windows.Application
         if (_moveInProgress || _folderCreationInProgress)
         {
             _tray?.ShowWarning(
-                "暂时无法更改归档目录",
+                "暂时无法更改轮盘起点",
                 "请等待当前文件操作完成后再试。");
             return;
         }
@@ -493,31 +532,35 @@ public partial class App : System.Windows.Application
         {
             _clickCancellation?.Cancel();
             _overlay?.HideOverlay();
-            var selectedRoot = ArchiveRootPicker.Pick(currentOptions.RootPath);
+            var currentSelection = GetSelectionPath(currentOptions);
+            var selectedRoot = ArchiveRootPicker.Pick(currentSelection);
             if (string.IsNullOrWhiteSpace(selectedRoot) ||
-                selectedRoot.Equals(currentOptions.RootPath, StringComparison.OrdinalIgnoreCase))
+                selectedRoot.Equals(currentSelection, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            _tray?.SetBusyStatus("正在读取新的归档目录…");
+            _tray?.SetBusyStatus("正在设置轮盘起点…");
             var result = await ApplyArchiveRootAsync(selectedRoot);
             if (!result.Success)
             {
                 _tray?.ShowWarning(
-                    "无法更改归档目录",
+                    "无法更改轮盘起点",
                     result.Error ?? "读取目录时发生未知错误。",
                     6000);
             }
             else if (result.SettingsSaved)
             {
                 _tray?.ShowStatus(
-                    "归档根目录已更改",
-                    $"已读取 {result.FolderCount:N0} 个子目录。",
+                    "轮盘起点已更改",
+                    DescribeCatalog(
+                        result.RootPath,
+                        result.StartPath,
+                        result.FolderCount),
                     3000);
             }
             else
             {
                 _tray?.ShowWarning(
-                    "根目录已切换，但设置未保存",
+                    "轮盘起点已切换，但设置未保存",
                     "本次运行可以正常使用；下次启动时可能需要重新选择。",
                     6000);
             }
@@ -525,7 +568,7 @@ public partial class App : System.Windows.Application
         catch (Exception exception)
         {
             _tray?.ShowWarning(
-                "无法更改归档目录",
+                "无法更改轮盘起点",
                 exception.Message,
                 6000);
         }
@@ -540,51 +583,91 @@ public partial class App : System.Windows.Application
     {
         var currentOptions = _options;
         if (currentOptions is null)
-            return new ArchiveRootApplyResult(false, selectedRoot, 0, false, "程序尚未完成初始化。");
+            return new ArchiveRootApplyResult(
+                false,
+                ArchiveScope.ThisPcRoot,
+                null,
+                0,
+                false,
+                "程序尚未完成初始化。");
 
         DirectoryTreeCache? replacement = null;
         try
         {
-            var normalizedRoot = CompanyArchive.NormalizeRoot(selectedRoot);
-            if (normalizedRoot.Equals(currentOptions.RootPath, StringComparison.OrdinalIgnoreCase) &&
-                _directoryCache?.Snapshot is not null)
+            var profile = ArchiveScope.CreateNavigationProfile(selectedRoot);
+            profile = ArchiveScope.NormalizeNavigationProfile(
+                profile.RootPath,
+                profile.StartPath);
+
+            var rootChanged = !profile.RootPath.Equals(
+                currentOptions.RootPath,
+                StringComparison.OrdinalIgnoreCase);
+            var candidateCache = _directoryCache;
+            if (rootChanged || candidateCache is null)
             {
-                var currentCount = _directoryCache?.Snapshot?.FolderCount ?? 0;
-                return new ArchiveRootApplyResult(
-                    true,
-                    normalizedRoot,
-                    currentCount,
-                    _archiveRootStore.Save(normalizedRoot),
-                    null);
+                replacement = new DirectoryTreeCache(profile.RootPath);
+                await replacement.ReloadAsync();
+                candidateCache = replacement;
             }
 
-            replacement = new DirectoryTreeCache(normalizedRoot);
-            await replacement.ReloadAsync();
-
-            var previous = _directoryCache;
-            _directoryCache = replacement;
-            replacement = null;
-            _options = currentOptions with { RootPath = normalizedRoot };
-            _tray?.SetArchiveRoot(normalizedRoot);
-            try
+            if (!string.IsNullOrWhiteSpace(profile.StartPath))
             {
-                previous?.Dispose();
-            }
-            catch
-            {
-                // The replacement cache is already active; disposal must not undo a valid switch.
+                var destination = ArchiveScope.ResolveDestination(
+                    profile.RootPath,
+                    profile.StartPath);
+                if (!Directory.Exists(destination))
+                    throw new DirectoryNotFoundException($"所选文件夹不存在：{destination}");
+
+                var snapshot = candidateCache.CreateMenuSnapshot()
+                               ?? throw new InvalidOperationException("目录缓存尚未准备完成。");
+                var session = new RadialMenuSession(snapshot.Folders);
+                var selectable = await session
+                    .SelectPathAsync(profile.StartPath)
+                    .WaitAsync(TimeSpan.FromSeconds(3));
+                if (!selectable)
+                    throw new InvalidOperationException(
+                        "无法从“此电脑”逐级到达该文件夹。请避开隐藏目录、系统目录或文件夹联接点。");
             }
 
+            if (replacement is not null)
+            {
+                var previous = _directoryCache;
+                _directoryCache = replacement;
+                replacement = null;
+                try
+                {
+                    previous?.Dispose();
+                }
+                catch
+                {
+                    // The replacement cache is already active; disposal must
+                    // not undo a valid switch.
+                }
+            }
+
+            _options = currentOptions with
+            {
+                RootPath = profile.RootPath,
+                StartPath = profile.StartPath
+            };
+            _tray?.SetArchiveRoot(GetSelectionPath(_options));
             return new ArchiveRootApplyResult(
                 true,
-                normalizedRoot,
-                _directoryCache.Snapshot?.FolderCount ?? 0,
-                _archiveRootStore.Save(normalizedRoot),
+                profile.RootPath,
+                profile.StartPath,
+                _directoryCache?.Snapshot?.FolderCount ?? 0,
+                _archiveRootStore.Save(profile),
                 null);
         }
         catch (Exception exception)
         {
-            return new ArchiveRootApplyResult(false, currentOptions.RootPath, 0, false, exception.Message);
+            return new ArchiveRootApplyResult(
+                false,
+                currentOptions.RootPath,
+                currentOptions.StartPath,
+                0,
+                false,
+                exception.Message);
         }
         finally
         {
@@ -601,7 +684,7 @@ public partial class App : System.Windows.Application
                 false,
                 false,
                 currentRoot,
-                "正在读取另一个目录，请稍后再试");
+                "正在读取另一个轮盘起点，请稍后再试");
         }
 
         if (_moveInProgress || _folderCreationInProgress)
@@ -610,7 +693,7 @@ public partial class App : System.Windows.Application
                 false,
                 false,
                 currentRoot,
-                "请等待当前文件操作完成后再选择目录");
+                "请等待当前文件操作完成后再选择轮盘起点");
         }
 
         _rootChangeInProgress = true;
@@ -622,7 +705,7 @@ public partial class App : System.Windows.Application
             if (string.IsNullOrWhiteSpace(selectedRoot))
                 return new OnboardingRootSelectionResult(false, true, currentRoot, null);
 
-            _tray?.SetBusyStatus("正在读取新的归档目录…");
+            _tray?.SetBusyStatus("正在设置轮盘起点…");
             var result = await ApplyArchiveRootAsync(selectedRoot);
             if (!result.Success)
             {
@@ -633,13 +716,21 @@ public partial class App : System.Windows.Application
                     $"读取失败：{result.Error ?? "未知错误"}");
             }
 
+            var selectedProfile = new ArchiveNavigationProfile(
+                result.RootPath,
+                result.StartPath);
+            var selectedPath = ArchiveScope.GetNavigationSelectionPath(
+                selectedProfile);
             var message = result.SettingsSaved
-                ? $"设置成功，已读取 {result.FolderCount:N0} 个子目录"
-                : "目录已切换，但设置暂未保存";
+                ? $"设置成功，{DescribeCatalog(
+                    result.RootPath,
+                    result.StartPath,
+                    result.FolderCount)}"
+                : "轮盘起点已切换，但设置暂未保存";
             return new OnboardingRootSelectionResult(
                 true,
                 false,
-                result.RootPath,
+                selectedPath,
                 message);
         }
         catch (Exception exception)
@@ -666,16 +757,18 @@ public partial class App : System.Windows.Application
         try
         {
             var guide = new OnboardingWindow(
-                options.RootPath,
+                GetSelectionPath(options),
                 ChooseArchiveRootFromOnboardingAsync,
                 rootSelectionRequired: true);
             if (startAtRootPage) guide.ShowPageForPreview(3);
             _ = guide.ShowDialog();
 
-            var activeRoot = _options?.RootPath;
+            var activeOptions = _options;
             if (guide.Completed)
-                _ = _archiveRootStore.MarkOnboardingCompleted(activeRoot);
-            return !string.IsNullOrWhiteSpace(activeRoot) && Directory.Exists(activeRoot);
+                _ = _archiveRootStore.MarkOnboardingCompleted(
+                    activeOptions is null ? null : GetProfile(activeOptions));
+            return activeOptions is not null &&
+                   ArchiveScope.IsAvailable(activeOptions.RootPath);
         }
         finally
         {
@@ -693,10 +786,12 @@ public partial class App : System.Windows.Application
         try
         {
             var guide = new OnboardingWindow(
-                options.RootPath,
+                GetSelectionPath(options),
                 ChooseArchiveRootFromOnboardingAsync);
             _ = guide.ShowDialog();
-            if (guide.Completed && !_archiveRootStore.MarkOnboardingCompleted(_options?.RootPath))
+            if (guide.Completed &&
+                !_archiveRootStore.MarkOnboardingCompleted(
+                    _options is null ? null : GetProfile(_options)))
             {
                 _tray?.ShowWarning(
                     "引导状态未能保存",
@@ -718,7 +813,7 @@ public partial class App : System.Windows.Application
         }
         if (_rootChangeInProgress)
         {
-            _tray?.ShowWarning("正在切换归档目录", "目录读取完成后再退出。");
+            _tray?.ShowWarning("正在切换轮盘起点", "目录读取完成后再退出。");
             return;
         }
 
@@ -781,9 +876,35 @@ public partial class App : System.Windows.Application
         }
     }
 
+    private static ArchiveNavigationProfile GetProfile(PrototypeOptions options) =>
+        new(options.RootPath, options.StartPath);
+
+    private static string GetSelectionPath(PrototypeOptions options) =>
+        ArchiveScope.GetNavigationSelectionPath(GetProfile(options));
+
+    private static string DescribeCatalog(PrototypeOptions? options, int itemCount) =>
+        options is null
+            ? "归档目录尚未准备完成。"
+            : DescribeCatalog(options.RootPath, options.StartPath, itemCount);
+
+    private static string DescribeCatalog(
+        string rootPath,
+        string? startPath,
+        int itemCount)
+    {
+        if (!ArchiveScope.IsThisPc(rootPath))
+            return $"轮盘从 {ArchiveScope.GetDisplayName(rootPath)} 开始，已读取 {itemCount:N0} 个子目录。";
+        if (string.IsNullOrWhiteSpace(startPath))
+            return $"轮盘从“此电脑”开始，已识别 {itemCount:N0} 个本地磁盘。";
+
+        var profile = new ArchiveNavigationProfile(rootPath, startPath);
+        return $"默认从 {ArchiveScope.GetNavigationDisplayName(profile)} 展开；右键可逐级返回“此电脑”。";
+    }
+
     private sealed record ArchiveRootApplyResult(
         bool Success,
         string RootPath,
+        string? StartPath,
         int FolderCount,
         bool SettingsSaved,
         string? Error);

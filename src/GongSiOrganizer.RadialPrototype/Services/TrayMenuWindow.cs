@@ -6,6 +6,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using GongSiOrganizer.Core;
 using GongSiOrganizer.RadialPrototype.Presentation;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
@@ -75,7 +76,7 @@ internal sealed class TrayMenuWindow : Window
         var rootStack = new StackPanel();
         rootStack.Children.Add(new TextBlock
         {
-            Text = "归档根目录",
+            Text = "轮盘默认起点",
             FontSize = 10,
             Foreground = UiVisuals.Brush(Color.FromRgb(86, 103, 122))
         });
@@ -102,8 +103,8 @@ internal sealed class TrayMenuWindow : Window
 
         body.Children.Add(CreateActionRow("?", "新手引导", "重新查看操作方法", () => InvokeAndHide(showOnboarding)));
         body.Children.Add(CreateActionRow("◎", "安全演示", "在鼠标位置预览轮盘", () => InvokeAndHide(showDemo)));
-        body.Children.Add(CreateActionRow("↻", "刷新归档目录", "重新读取文件夹层级", () => InvokeAndHide(refresh)));
-        body.Children.Add(CreateActionRow("☆", "重置常用排序", "清除当前根目录的频次", () => InvokeAndHide(resetUsage)));
+        body.Children.Add(CreateActionRow("↻", "刷新目录缓存", "重新读取磁盘和文件夹层级", () => InvokeAndHide(refresh)));
+        body.Children.Add(CreateActionRow("☆", "重置常用排序", "清除所有目录的选择频次", () => InvokeAndHide(resetUsage)));
         body.Children.Add(CreateSeparator());
 
         ToggleVisual successToggle = null!;
@@ -162,8 +163,9 @@ internal sealed class TrayMenuWindow : Window
 
     public void SetArchiveRoot(string rootPath)
     {
-        _rootText.Text = rootPath;
-        _rootText.ToolTip = rootPath;
+        var displayName = ArchiveScope.GetDisplayName(rootPath);
+        _rootText.Text = displayName;
+        _rootText.ToolTip = displayName;
     }
 
     public void ShowAt(NativeScreenPoint anchor)
