@@ -25,7 +25,7 @@ public sealed class DirectMoveBatchService
         string archiveRoot,
         string relativeDestination)
     {
-        var destination = CompanyArchive.ResolveDestination(
+        var destination = ArchiveScope.ResolveDestination(
             archiveRoot,
             relativeDestination);
         if (!Directory.Exists(destination))

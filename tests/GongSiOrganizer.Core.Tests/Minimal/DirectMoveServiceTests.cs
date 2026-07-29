@@ -52,6 +52,20 @@ public sealed class DirectMoveServiceTests
     }
 
     [Fact]
+    public void Move_ForcedCrossVolumeFilePathUsesMoveSemantics()
+    {
+        using var workspace = new TestWorkspace();
+        var source = workspace.FileAt("跨盘内容", "desktop", "资料.txt");
+        var destination = workspace.DirectoryAt("archive");
+
+        var result = new DirectMoveService(
+            forceCopyDeleteFileMove: true).Move(source, destination);
+
+        Assert.False(File.Exists(source));
+        Assert.Equal("跨盘内容", File.ReadAllText(result.DestinationPath));
+    }
+
+    [Fact]
     public void Move_NameConflictAddsNumberWithoutOverwrite()
     {
         using var workspace = new TestWorkspace();

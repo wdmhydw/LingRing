@@ -8,10 +8,14 @@ public sealed record DirectMoveResult(
 public sealed class DirectMoveService
 {
     private readonly bool _forcePerFileDirectoryMove;
+    private readonly bool _forceCopyDeleteFileMove;
 
-    public DirectMoveService(bool forcePerFileDirectoryMove = false)
+    public DirectMoveService(
+        bool forcePerFileDirectoryMove = false,
+        bool forceCopyDeleteFileMove = false)
     {
         _forcePerFileDirectoryMove = forcePerFileDirectoryMove;
+        _forceCopyDeleteFileMove = forceCopyDeleteFileMove;
     }
 
     public DirectMoveResult MoveToArchive(
@@ -19,7 +23,7 @@ public sealed class DirectMoveService
         string archiveRoot,
         string relativeDestination)
     {
-        var destination = CompanyArchive.ResolveDestination(
+        var destination = ArchiveScope.ResolveDestination(
             archiveRoot,
             relativeDestination);
         return Move(sourcePath, destination);
@@ -50,7 +54,10 @@ public sealed class DirectMoveService
         var finalPath = FindAvailablePath(proposedPath, isDirectory);
         if (isFile)
         {
-            File.Move(source, finalPath, false);
+            if (_forceCopyDeleteFileMove || !SameVolume(source, finalPath))
+                MoveFileAcrossVolumes(source, finalPath);
+            else
+                File.Move(source, finalPath, false);
         }
         else if (!_forcePerFileDirectoryMove && SameVolume(source, finalPath))
         {
@@ -101,7 +108,7 @@ public sealed class DirectMoveService
             foreach (var file in files)
             {
                 var target = Path.Combine(destinationRoot, Path.GetRelativePath(sourceRoot, file));
-                File.Move(file, target, false);
+                MoveFileAcrossVolumes(file, target);
                 movedFileCount++;
             }
 
@@ -117,6 +124,46 @@ public sealed class DirectMoveService
                 ? "没有文件被移动。"
                 : $"已有 {movedFileCount} 个文件直接移动到目标，剩余内容仍在原文件夹。";
             throw new IOException($"跨盘移动文件夹未能完整完成。{detail}", exception);
+        }
+    }
+
+    private static void MoveFileAcrossVolumes(string source, string destination)
+    {
+        try
+        {
+            File.Copy(source, destination, false);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(destination)) File.Delete(destination);
+            }
+            catch
+            {
+            }
+
+            throw;
+        }
+
+        try
+        {
+            File.Delete(source);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            try
+            {
+                File.Delete(destination);
+            }
+            catch
+            {
+                // The source still exists. Report the original deletion error
+                // even if cleanup of the destination also failed.
+            }
+
+            throw new IOException("目标文件已写入，但无法删除源文件；移动已回滚。", exception);
         }
     }
 

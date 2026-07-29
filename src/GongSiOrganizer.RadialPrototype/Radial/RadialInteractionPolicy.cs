@@ -16,6 +16,12 @@ internal static class RadialInteractionPolicy
 {
     private const double MarkerSeparationPixels = 7;
 
+    internal static TimeSpan NormalHoverDelay { get; } =
+        TimeSpan.FromMilliseconds(450);
+
+    internal static TimeSpan WheelHoverDelay { get; } =
+        TimeSpan.FromMilliseconds(850);
+
     internal static int ResolveScrollableRing(
         RadialHit hit,
         IReadOnlyList<RadialRingView> views)
@@ -67,4 +73,5 @@ internal static class RadialInteractionPolicy
                 layout.StartAngle + layout.SweepAngle + angularSeparation,
                 1));
     }
+
 }

@@ -62,10 +62,12 @@ internal sealed class RadialMenuControl : FrameworkElement
     private RadialHit _previousVisualHover = RadialHit.None;
     private RadialHit _hoverCandidate = RadialHit.None;
     private RadialRingView[]? _previousViews;
+    private RadialRingView[]? _pendingAsyncViews;
     private Point _lastPointer;
     private Point _drillAnchor;
     private bool _suppressDeepDrill;
     private bool _wheelTransitionActive;
+    private bool _ringTransitionContentOnly;
     private int _ringTransitionDirection = 1;
     private int _wheelTransitionRingIndex = -1;
     private int _queuedWheelSteps;
@@ -101,7 +103,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         _folderIcon = ShellIconProvider.LoadFolderIcon();
         _hoverTimer = new DispatcherTimer(DispatcherPriority.Input)
         {
-            Interval = TimeSpan.FromMilliseconds(82)
+            Interval = RadialInteractionPolicy.NormalHoverDelay
         };
         _hoverTimer.Tick += OnHoverTimer;
         IsVisibleChanged += (_, _) => UpdateScrollHintAnimation(IsVisible);
@@ -116,15 +118,19 @@ internal sealed class RadialMenuControl : FrameworkElement
         RadialMenuSession? session,
         int sourceItemCount = 1)
     {
+        if (_session is not null) _session.Changed -= OnSessionChanged;
         _layout = layout;
         _session = session;
+        if (_session is not null) _session.Changed += OnSessionChanged;
         _sourceItemCount = Math.Max(0, sourceItemCount);
         BeginAnimation(RingTransitionProgressProperty, null);
         BeginAnimation(HoverTransitionProgressProperty, null);
         RingTransitionProgress = 1;
         HoverTransitionProgress = 1;
         _previousViews = null;
+        _pendingAsyncViews = null;
         _wheelTransitionActive = false;
+        _ringTransitionContentOnly = false;
         _wheelTransitionRingIndex = -1;
         _queuedWheelSteps = 0;
         _queuedWheelRingIndex = -1;
@@ -137,9 +143,18 @@ internal sealed class RadialMenuControl : FrameworkElement
         InvalidateVisual();
     }
 
+    public void ReleaseSession()
+    {
+        if (_session is not null) _session.Changed -= OnSessionChanged;
+        _session = null;
+        _pendingAsyncViews = null;
+        _previousViews = null;
+        _hoverTimer.Stop();
+    }
+
     public bool NavigateBack()
     {
-        if (_session is null || _session.Path.Count <= 1) return false;
+        if (_session is null) return false;
         var previousViews = CaptureRingViews();
         if (!_session.NavigateBack()) return false;
 
@@ -196,19 +211,22 @@ internal sealed class RadialMenuControl : FrameworkElement
         if (_layout is null) return;
         var point = e.GetPosition(this);
         _lastPointer = point;
+        var suppressionReleased = false;
         if (_suppressDeepDrill && Distance(point, _drillAnchor) >= 12)
+        {
             _suppressDeepDrill = false;
+            suppressionReleased = true;
+        }
 
         var hit = HitTest(point);
         if (!Equals(hit, _visualHover))
             StartHoverTransition(hit);
 
-        if (!Equals(hit, _hoverCandidate))
+        if (!Equals(hit, _hoverCandidate) || suppressionReleased)
         {
-            _hoverCandidate = hit;
-            _hoverTimer.Stop();
-            if (hit.RingIndex >= 0 && _session?.GetFolder(hit.RingIndex, hit.SlotIndex) is not null)
-                _hoverTimer.Start();
+            ArmHoverIntent(
+                hit,
+                RadialInteractionPolicy.NormalHoverDelay);
         }
     }
 
@@ -237,6 +255,10 @@ internal sealed class RadialMenuControl : FrameworkElement
             // The wheel belongs exclusively to the ring under the pointer.  In
             // particular, never fall back to a scrollable parent when the
             // hovered child ring has four or fewer entries.
+            _suppressDeepDrill = false;
+            ArmHoverIntent(
+                hit,
+                RadialInteractionPolicy.WheelHoverDelay);
             e.Handled = true;
             return;
         }
@@ -244,12 +266,11 @@ internal sealed class RadialMenuControl : FrameworkElement
         var direction = e.Delta > 0 ? -1 : 1;
         if (RequestWheelRotation(ring, direction, slot))
         {
-            if (ring == 2)
-            {
-                _suppressDeepDrill = true;
-                _drillAnchor = pointer;
-            }
-
+            _suppressDeepDrill = false;
+            ArmHoverIntent(
+                hit,
+                RadialInteractionPolicy.WheelHoverDelay,
+                false);
             e.Handled = true;
         }
     }
@@ -310,9 +331,20 @@ internal sealed class RadialMenuControl : FrameworkElement
 
     private void OnHoverTimer(object? sender, EventArgs e)
     {
+        ActivateHoverCandidate();
+    }
+
+    private void ActivateHoverCandidate()
+    {
         _hoverTimer.Stop();
         if (_session is null || _hoverCandidate.RingIndex < 0) return;
-        if (_wheelTransitionActive) return;
+        if (_wheelTransitionActive)
+        {
+            _hoverTimer.Interval = TimeSpan.FromMilliseconds(90);
+            _hoverTimer.Start();
+            return;
+        }
+
         if (_suppressDeepDrill && _hoverCandidate.RingIndex == 2) return;
 
         var previousViews = CaptureRingViews();
@@ -324,7 +356,14 @@ internal sealed class RadialMenuControl : FrameworkElement
                 _drillAnchor = _lastPointer;
             }
 
-            StartRingTransition(previousViews, 1);
+            var currentViews = CaptureRingViews();
+            if (ShouldAnimateExpansion(previousViews, currentViews))
+                StartRingTransition(
+                    previousViews,
+                    1,
+                    contentChangesOnly: true);
+            else
+                InvalidateVisual();
         }
     }
 
@@ -343,9 +382,13 @@ internal sealed class RadialMenuControl : FrameworkElement
             var previous = _previousViews is not null && ringIndex < _previousViews.Length
                 ? _previousViews[ringIndex]
                 : null;
+            var hasTransitionDifference = previous is not null &&
+                                          (_ringTransitionContentOnly
+                                              ? !RingContentsEquivalent(previous, current)
+                                              : !RingViewsEquivalent(previous, current));
             if (previous is not null &&
                 progress < 0.999 &&
-                !RingViewsEquivalent(previous, current))
+                hasTransitionDifference)
             {
                 if (ringIndex == _wheelTransitionRingIndex &&
                     previous.TotalCount > RadialLayout.SlotsPerRing &&
@@ -576,13 +619,8 @@ internal sealed class RadialMenuControl : FrameworkElement
         var outer = ring.OuterRadius - 1.5;
         var midAngle = (start + end) / 2;
         hoverAmount = Math.Clamp(hoverAmount, 0, 1);
-        var hoverOffset = 2.8d * hoverAmount;
         var radians = midAngle * Math.PI / 180;
-        var translate = new TranslateTransform(
-            hoverOffset * Math.Cos(radians),
-            hoverOffset * Math.Sin(radians));
 
-        drawingContext.PushTransform(translate);
         var geometry = CreateWedge(layout.LocalCenter, inner, outer, start, end);
         drawingContext.PushTransform(new TranslateTransform(0, 2));
         drawingContext.DrawGeometry(
@@ -638,7 +676,6 @@ internal sealed class RadialMenuControl : FrameworkElement
                 true);
         }
 
-        drawingContext.Pop();
     }
 
     private void DrawCenter(
@@ -694,13 +731,17 @@ internal sealed class RadialMenuControl : FrameworkElement
             new Point(center.X, center.Y + radius - 9));
 
         var destinationName = session?.CurrentDestination?.DisplayName ?? "请选择目录";
-        var actionText = session?.CurrentDestination is null
-            ? _sourceItemCount > 1
-                ? $"已选择 {_sourceItemCount} 项"
-                : "悬停选择后确认"
-            : _sourceItemCount > 1
-                ? $"左键移动 {_sourceItemCount} 项"
-                : "左键确认移动";
+        var actionText = session?.IsCurrentChildrenLoading == true
+            ? "正在读取下一级…"
+            : !string.IsNullOrWhiteSpace(session?.CurrentChildrenError)
+                ? "目录暂时无法读取"
+                : session?.CurrentDestination is null
+                    ? _sourceItemCount > 1
+                        ? $"已选择 {_sourceItemCount} 项"
+                        : "悬停选择后确认"
+                    : _sourceItemCount > 1
+                        ? $"左键移动 {_sourceItemCount} 项"
+                        : "左键确认移动";
         DrawCenteredText(
             drawingContext,
             "目标文件夹",
@@ -938,9 +979,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         }
 
         var previousViews = CaptureRingViews();
-        if (!_session.RotateAndHover(ring, direction, slot)) return false;
-        _hoverTimer.Stop();
-        _hoverCandidate = HitTest(_lastPointer);
+        if (!_session.RotateAndPreview(ring, direction, slot)) return false;
         StartRingTransition(previousViews, direction, ring);
         return true;
     }
@@ -1067,11 +1106,17 @@ internal sealed class RadialMenuControl : FrameworkElement
     private void StartRingTransition(
         RadialRingView[] previousViews,
         int direction,
-        int wheelRingIndex = -1)
+        int wheelRingIndex = -1,
+        bool contentChangesOnly = false)
     {
         var currentViews = CaptureRingViews();
         if (previousViews.Length == currentViews.Length &&
-            previousViews.Zip(currentViews, RingViewsEquivalent).All(equal => equal))
+            previousViews.Zip(
+                    currentViews,
+                    (previous, current) => contentChangesOnly
+                        ? RingContentsEquivalent(previous, current)
+                        : RingViewsEquivalent(previous, current))
+                .All(equal => equal))
         {
             InvalidateVisual();
             return;
@@ -1081,6 +1126,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         _ringTransitionDirection = direction == 0 ? 1 : Math.Sign(direction);
         _wheelTransitionRingIndex = wheelRingIndex;
         _wheelTransitionActive = wheelRingIndex >= 0;
+        _ringTransitionContentOnly = contentChangesOnly;
         if (!_wheelTransitionActive)
         {
             _queuedWheelSteps = 0;
@@ -1107,6 +1153,7 @@ internal sealed class RadialMenuControl : FrameworkElement
             if (generation != _ringTransitionGeneration) return;
             _previousViews = null;
             _wheelTransitionRingIndex = -1;
+            _ringTransitionContentOnly = false;
             var continueWheel = _wheelTransitionActive && _queuedWheelSteps != 0;
             _wheelTransitionActive = false;
             InvalidateVisual();
@@ -1159,12 +1206,20 @@ internal sealed class RadialMenuControl : FrameworkElement
 
     private static bool RingViewsEquivalent(RadialRingView left, RadialRingView right)
     {
-        if (left.TotalCount != right.TotalCount ||
-            left.Offset != right.Offset ||
+        if (!RingContentsEquivalent(left, right) ||
             !string.Equals(
                 left.SelectedRelativePath,
                 right.SelectedRelativePath,
-                StringComparison.OrdinalIgnoreCase) ||
+                StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return true;
+    }
+
+    private static bool RingContentsEquivalent(RadialRingView left, RadialRingView right)
+    {
+        if (left.TotalCount != right.TotalCount ||
+            left.Offset != right.Offset ||
             left.Slots.Count != right.Slots.Count)
             return false;
 
@@ -1178,6 +1233,23 @@ internal sealed class RadialMenuControl : FrameworkElement
         }
 
         return true;
+    }
+
+    internal static bool ShouldAnimateExpansion(
+        IReadOnlyList<RadialRingView> previousViews,
+        IReadOnlyList<RadialRingView> currentViews)
+    {
+        var count = Math.Min(previousViews.Count, currentViews.Count);
+        // Ring 0 is the current level.  Merely selecting another item there is
+        // not an expansion; only a changed, non-empty child ring should move.
+        for (var index = 1; index < count; index++)
+        {
+            if (currentViews[index].TotalCount > 0 &&
+                !RingContentsEquivalent(previousViews[index], currentViews[index]))
+                return true;
+        }
+
+        return false;
     }
 
     private static Color Blend(Color from, Color to, double amount)
@@ -1205,6 +1277,59 @@ internal sealed class RadialMenuControl : FrameworkElement
             first,
             second,
             third);
+    }
+
+    private void BeginFolderPrefetch(FolderMenuNode folder)
+    {
+        if (_session is null) return;
+        var previous = CaptureRingViews();
+        _pendingAsyncViews = previous;
+        if (_session.Prefetch(folder))
+        {
+            InvalidateVisual();
+            return;
+        }
+
+        if (ReferenceEquals(_pendingAsyncViews, previous))
+            _pendingAsyncViews = null;
+    }
+
+    private void ArmHoverIntent(
+        RadialHit hit,
+        TimeSpan delay,
+        bool beginPrefetch = true)
+    {
+        _hoverTimer.Stop();
+        _hoverCandidate = hit;
+        var folder = hit.RingIndex >= 0
+            ? _session?.GetFolder(hit.RingIndex, hit.SlotIndex)
+            : null;
+        if (folder is null) return;
+        if (beginPrefetch) BeginFolderPrefetch(folder);
+        _hoverTimer.Interval = delay;
+        _hoverTimer.Start();
+    }
+
+    private void OnSessionChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            _ = Dispatcher.BeginInvoke(
+                () => OnSessionChanged(sender, e),
+                DispatcherPriority.Input);
+            return;
+        }
+
+        if (!ReferenceEquals(sender, _session)) return;
+        var previous = _pendingAsyncViews;
+        _pendingAsyncViews = null;
+        if (previous is { Length: > 0 })
+            StartRingTransition(
+                previous,
+                1,
+                contentChangesOnly: true);
+        else
+            InvalidateVisual();
     }
 
     private int VisibleSlots(int ringIndex) => _session is null

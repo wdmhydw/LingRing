@@ -54,8 +54,11 @@ public static class CompanyArchive
     {
         var candidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(candidatePath));
         var root = NormalizeRoot(rootPath);
+        var rootPrefix = Path.EndsInDirectorySeparator(root)
+            ? root
+            : root + Path.DirectorySeparatorChar;
         return candidate.Equals(root, StringComparison.OrdinalIgnoreCase) ||
-               candidate.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+               candidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase);
     }
 }
 

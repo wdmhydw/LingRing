@@ -60,6 +60,20 @@ public sealed class RadialInteractionPolicyTests
     }
 
     [Fact]
+    public void HoverIntent_UsesLongerDelayAfterWheelInput()
+    {
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(450),
+            RadialInteractionPolicy.NormalHoverDelay);
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(850),
+            RadialInteractionPolicy.WheelHoverDelay);
+        Assert.True(
+            RadialInteractionPolicy.WheelHoverDelay >
+            RadialInteractionPolicy.NormalHoverDelay);
+    }
+
+    [Fact]
     public void QuarterCircleMarkers_UseHoveredRingAndPointTowardTheArcEnds()
     {
         var layout = RadialLayout.Create(new RadialPoint(12, 18), WorkArea);

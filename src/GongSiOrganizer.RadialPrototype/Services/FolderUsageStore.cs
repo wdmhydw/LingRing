@@ -26,7 +26,7 @@ internal sealed class FolderUsageStore
         Dictionary<string, UsageEntry> entries;
         lock (_gate)
         {
-            var root = CompanyArchive.NormalizeRoot(snapshot.RootPath);
+            var root = ArchiveScope.Normalize(snapshot.RootPath);
             entries = _profiles.TryGetValue(root, out var profile)
                 ? new Dictionary<string, UsageEntry>(profile, StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, UsageEntry>(StringComparer.OrdinalIgnoreCase);
@@ -39,7 +39,7 @@ internal sealed class FolderUsageStore
     {
         var prefixes = GetPrefixes(relativeDestination);
         if (prefixes.Count == 0) return;
-        var root = CompanyArchive.NormalizeRoot(rootPath);
+        var root = ArchiveScope.Normalize(rootPath);
 
         lock (_gate)
         {
@@ -65,7 +65,7 @@ internal sealed class FolderUsageStore
 
     public void Clear(string rootPath)
     {
-        var root = CompanyArchive.NormalizeRoot(rootPath);
+        var root = ArchiveScope.Normalize(rootPath);
         lock (_gate)
         {
             _profiles.Remove(root);
@@ -78,7 +78,12 @@ internal sealed class FolderUsageStore
         IReadOnlyDictionary<string, UsageEntry> entries)
     {
         return nodes
-            .Select(node => node with { Children = Rank(node.Children, entries) })
+            .Select(node => node with
+            {
+                Children = node.Children is AsyncFolderMenuNodeList asyncChildren
+                    ? asyncChildren.Transform(children => Rank(children, entries))
+                    : Rank(node.Children, entries)
+            })
             .OrderByDescending(node => GetUsage(node.RelativePath, entries).Count)
             .ThenByDescending(node => GetUsage(node.RelativePath, entries).LastUsedUtcTicks)
             .ThenBy(node => node.DisplayName, StringComparer.CurrentCultureIgnoreCase)
@@ -187,17 +192,38 @@ internal sealed class FolderUsageStore
     {
         try
         {
-            var root = CompanyArchive.NormalizeRoot(rootPath);
-            var entries = new Dictionary<string, UsageEntry>(StringComparer.OrdinalIgnoreCase);
+            var profile = ArchiveScope.CreateNavigationProfile(rootPath);
+            var root = profile.RootPath;
+            if (!_profiles.TryGetValue(root, out var entries))
+            {
+                entries = new Dictionary<string, UsageEntry>(StringComparer.OrdinalIgnoreCase);
+                _profiles[root] = entries;
+            }
+
             foreach (var (path, usage) in source)
             {
                 if (string.IsNullOrWhiteSpace(path) || usage.Count <= 0) continue;
-                entries[path] = usage;
+                var translatedPath = string.IsNullOrWhiteSpace(profile.StartPath)
+                    ? CompanyArchive.NormalizeRelativePath(path)
+                    : ArchiveScope.CombineDestinationToken(
+                        root,
+                        profile.StartPath,
+                        path);
+                entries.TryGetValue(translatedPath, out var existing);
+                entries[translatedPath] = existing is null
+                    ? usage
+                    : new UsageEntry(
+                        existing.Count > long.MaxValue - usage.Count
+                            ? long.MaxValue
+                            : existing.Count + usage.Count,
+                        Math.Max(existing.LastUsedUtcTicks, usage.LastUsedUtcTicks));
             }
 
-            if (entries.Count > 0) _profiles[root] = entries;
         }
-        catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
+        catch (Exception exception) when (
+            exception is ArgumentException or
+                InvalidOperationException or
+                NotSupportedException)
         {
         }
     }

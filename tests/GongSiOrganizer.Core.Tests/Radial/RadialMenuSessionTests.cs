@@ -86,6 +86,91 @@ public sealed class RadialMenuSessionTests
     }
 
     [Fact]
+    public void OuterRingWheel_PreviewsSiblingUntilHoverCommitsTheNextLevel()
+    {
+        var siblings = Enumerable.Range(1, 6)
+            .Select(index => Node($"第三级{index}", Node($"第四级{index}")))
+            .ToArray();
+        var session = new RadialMenuSession(
+            [Node("第一级", Node("第二级", siblings))]);
+        Assert.True(session.Hover(0, 0));
+        Assert.True(session.Hover(1, 0));
+
+        Assert.True(session.RotateAndPreview(2, 1, 0));
+
+        Assert.Equal(3, session.Path.Count);
+        Assert.Equal("第三级2", session.CurrentDestination!.DisplayName);
+        Assert.Equal(
+            @"第一级\第二级",
+            session.GetRingView(1).SelectedRelativePath);
+        Assert.Equal(
+            @"第一级\第二级\第三级2",
+            session.GetRingView(2).SelectedRelativePath);
+        Assert.Equal("第三级2", session.GetRingView(2).Slots[0]!.DisplayName);
+
+        Assert.True(session.Hover(2, 0));
+
+        Assert.Equal(
+            @"第一级\第二级\第三级2",
+            session.GetRingView(1).SelectedRelativePath);
+        Assert.Equal("第四级2", session.GetRingView(2).Slots[0]!.DisplayName);
+    }
+
+    [Fact]
+    public async Task OuterRingWheel_DoesNotAdvanceWhenPreviewedChildrenFinishLoading()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var previewChildren = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => pending.Task);
+        var siblings = Enumerable.Range(1, 6)
+            .Select(index => index == 2
+                ? new GongSiOrganizer.Core.FolderMenuNode(
+                    "第三级2",
+                    @"第一级\第二级\第三级2",
+                    previewChildren)
+                : new GongSiOrganizer.Core.FolderMenuNode(
+                    $"第三级{index}",
+                    $@"第一级\第二级\第三级{index}",
+                    []))
+            .ToArray();
+        var session = new RadialMenuSession(
+        [
+            new(
+                "第一级",
+                "第一级",
+                [
+                    new(
+                        "第二级",
+                        @"第一级\第二级",
+                        siblings)
+                ])
+        ]);
+        Assert.True(session.Hover(0, 0));
+        Assert.True(session.Hover(1, 0));
+        Assert.True(session.RotateAndPreview(2, 1, 0));
+        var changed = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Changed += (_, _) => changed.TrySetResult();
+
+        pending.SetResult(
+        [
+            new(
+                "第四级2",
+                @"第一级\第二级\第三级2\第四级2",
+                [])
+        ]);
+        await changed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal("第三级2", session.GetRingView(2).Slots[0]!.DisplayName);
+        Assert.Equal(
+            @"第一级\第二级",
+            session.GetRingView(1).SelectedRelativePath);
+        Assert.True(session.Hover(2, 0));
+        Assert.Equal("第四级2", session.GetRingView(2).Slots[0]!.DisplayName);
+    }
+
+    [Fact]
     public void NavigateBack_RestoresTheParentAndKeepsTheFormerChoiceVisible()
     {
         var leaf = Node("第五层");
@@ -149,6 +234,112 @@ public sealed class RadialMenuSessionTests
         Assert.False(session.SelectPath("不存在"));
 
         Assert.Equal("公司甲", session.CurrentDestination!.DisplayName);
+    }
+
+    [Fact]
+    public async Task AsyncChildren_LoadWithoutBlockingAndAppearWhenReady()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var children = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => pending.Task);
+        var drive = new GongSiOrganizer.Core.FolderMenuNode("C: 本地磁盘", "C", children);
+        var session = new RadialMenuSession([drive]);
+        var changed = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Changed += (_, _) => changed.TrySetResult();
+
+        Assert.True(session.Hover(0, 0));
+        Assert.True(session.IsCurrentChildrenLoading);
+        Assert.Equal(0, session.GetRingView(1).TotalCount);
+
+        pending.SetResult(
+            [new GongSiOrganizer.Core.FolderMenuNode("资料", @"C\资料", [])]);
+        await changed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.False(session.IsCurrentChildrenLoading);
+        Assert.Equal("资料", session.GetRingView(1).Slots[0]!.DisplayName);
+    }
+
+    [Fact]
+    public async Task SelectPathAsync_LoadsOnlyTheRequestedChain()
+    {
+        var projectChildren = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => Task.FromResult<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            [
+                new("项目A", @"C\资料\项目A", [])
+            ]));
+        var driveChildren = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => Task.FromResult<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            [
+                new("资料", @"C\资料", projectChildren)
+            ]));
+        var session = new RadialMenuSession(
+            [new GongSiOrganizer.Core.FolderMenuNode("C: 本地磁盘", "C", driveChildren)]);
+
+        Assert.True(await session.SelectPathAsync(@"C\资料\项目A"));
+
+        Assert.Equal("项目A", session.CurrentDestination!.DisplayName);
+        Assert.Equal(3, session.Path.Count);
+    }
+
+    [Fact]
+    public async Task DefaultFolderStart_CanReturnThroughDriveToThisPc()
+    {
+        var folderChildren = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => Task.FromResult<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            [
+                new("项目A", @"C\资料\项目A", [])
+            ]));
+        var driveChildren = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => Task.FromResult<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            [
+                new("资料", @"C\资料", folderChildren)
+            ]));
+        var session = new RadialMenuSession(
+            [new GongSiOrganizer.Core.FolderMenuNode("C: 本地磁盘", "C", driveChildren)]);
+        Assert.True(await session.SelectStartPathAsync(@"C\资料"));
+
+        Assert.Equal(@"C\资料", session.CurrentDestination!.RelativePath);
+        Assert.Equal("项目A", session.GetRingView(0).Slots[0]!.DisplayName);
+        Assert.DoesNotContain(
+            session.GetRingView(0).Slots,
+            item => item?.RelativePath == "C");
+        Assert.True(session.NavigateBack());
+        Assert.Equal("C", session.CurrentDestination!.RelativePath);
+        Assert.Equal("资料", session.GetRingView(0).Slots[0]!.DisplayName);
+        Assert.True(session.NavigateBack());
+        Assert.Empty(session.Path);
+        Assert.Equal("C: 本地磁盘", session.GetRingView(0).Slots[0]!.DisplayName);
+    }
+
+    [Fact]
+    public async Task SelectedChild_RemainsInsideTheConfiguredVisibleAnchor()
+    {
+        var folderChildren = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => Task.FromResult<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            [
+                new("项目A", @"C\资料\项目A", [])
+            ]));
+        var driveChildren = new GongSiOrganizer.Core.AsyncFolderMenuNodeList(
+            () => Task.FromResult<IReadOnlyList<GongSiOrganizer.Core.FolderMenuNode>>(
+            [
+                new("资料", @"C\资料", folderChildren)
+            ]));
+        var session = new RadialMenuSession(
+            [new GongSiOrganizer.Core.FolderMenuNode("C: 本地磁盘", "C", driveChildren)]);
+
+        Assert.True(await session.SelectPathAsync(
+            @"C\资料\项目A",
+            @"C\资料"));
+
+        Assert.Equal(@"C\资料\项目A", session.CurrentDestination!.RelativePath);
+        Assert.Equal(
+            @"C\资料\项目A",
+            session.GetRingView(0).SelectedRelativePath);
+        Assert.DoesNotContain(
+            session.GetRingView(0).Slots,
+            item => item?.RelativePath == "C");
     }
 
     private static GongSiOrganizer.Core.FolderMenuNode Node(
