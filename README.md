@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="src/GongSiOrganizer.RadialPrototype/Assets/GongSiOrganizer.png" width="112" alt="文件快速归档图标">
+  <img src="src/GongSiOrganizer.RadialPrototype/Assets/GongSiOrganizer.png" width="112" alt="灵环·文件快速整理图标">
 </p>
 
-<h1 align="center">文件快速归档</h1>
+<h1 align="center">灵环·文件快速整理</h1>
 
 <p align="center">在桌面或文件资源管理器中，用鼠标中键呼出同心圆目录轮盘，把文件和文件夹快速移动到归档目录。</p>
 
 ## 下载
 
-[前往 Releases 下载最新版 Windows 安装版或便携版](https://github.com/wdmhydw/FileQuickArchive/releases/latest)
+[前往 Releases 下载最新版 Windows 安装版或便携版](https://github.com/wdmhydw/LingRing/releases/latest)
 
 当前版本：`v0.5.5`。发行包面向 Windows x64，并已在 Windows 11 上完成实际桌面验证。
 
@@ -26,12 +26,12 @@
 </table>
 
 <p align="center">
-  <img src="docs/images/onboarding.png" width="820" alt="文件快速归档新手引导">
+  <img src="docs/images/onboarding.png" width="820" alt="灵环·文件快速整理新手引导">
   <br>首次启动的新手引导
 </p>
 
 <p align="center">
-  <img src="docs/images/tray-menu.png" width="340" alt="文件快速归档托盘菜单">
+  <img src="docs/images/tray-menu.png" width="340" alt="灵环·文件快速整理托盘菜单">
   <br>托盘设置菜单
 </p>
 
@@ -50,7 +50,7 @@
 
 ## 使用方法
 
-1. 安装并启动“文件快速归档”。
+1. 安装并启动“灵环·文件快速整理”。
 2. 在新手引导最后一步保留最高层“此电脑”，或向下选择一个常用文件夹作为轮盘默认起点。
 3. 在桌面或文件资源管理器文件区域的文件、文件夹上单击鼠标中键。
 4. 移入扇区逐级选择目标目录，左键单击扇区或中心圆确认移动。
@@ -93,7 +93,7 @@ dotnet publish src\GongSiOrganizer.RadialPrototype\GongSiOrganizer.RadialPrototy
   -c Release -r win-x64 --self-contained true
 ```
 
-安装程序使用 [NSIS](https://nsis.sourceforge.io/) 构建，脚本位于 `installer/FileQuickArchive.nsi`。
+安装程序使用 [NSIS](https://nsis.sourceforge.io/) 构建，脚本位于 `installer/LingRing.nsi`。
 
 ## 文档
 

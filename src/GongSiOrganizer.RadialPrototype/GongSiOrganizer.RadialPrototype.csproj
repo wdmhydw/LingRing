@@ -11,7 +11,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <Version>0.5.5</Version>
     <FileVersion>0.5.5.0</FileVersion>
-    <Product>文件快速归档</Product>
+    <Product>灵环·文件快速整理</Product>
     <Description>通过鼠标中键轮盘将文件或文件夹快速移动到归档目录。</Description>
   </PropertyGroup>
   <ItemGroup>

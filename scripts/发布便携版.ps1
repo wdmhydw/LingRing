@@ -13,8 +13,8 @@ if ($null -eq $versionNode -or [string]::IsNullOrWhiteSpace($versionNode.Node.In
 
 $version = $versionNode.Node.InnerText.Trim()
 $artifactRoot = Join-Path $projectRoot 'artifacts'
-$output = Join-Path $artifactRoot ("FileQuickArchive-$version-$Runtime-portable")
-$zipPath = Join-Path $artifactRoot ("文件快速归档-$version-$Runtime-便携版.zip")
+$output = Join-Path $artifactRoot ("LingRing-$version-$Runtime-portable")
+$zipPath = Join-Path $artifactRoot ("灵环·文件快速整理-$version-$Runtime-便携版.zip")
 $projectRootFull = [System.IO.Path]::GetFullPath($projectRoot).TrimEnd('\')
 $artifactRootFull = [System.IO.Path]::GetFullPath($artifactRoot).TrimEnd('\')
 $outputFull = [System.IO.Path]::GetFullPath($output)
@@ -51,7 +51,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $publishedExe = Join-Path $outputFull 'GongSiOrganizer.RadialPrototype.exe'
-$productExe = Join-Path $outputFull '文件快速归档.exe'
+$productExe = Join-Path $outputFull '灵环·文件快速整理.exe'
 Move-Item -LiteralPath $publishedExe -Destination $productExe -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\同心圆原型使用说明.txt') -Destination (Join-Path $outputFull '使用说明.txt')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'src\GongSiOrganizer.RadialPrototype\Assets\GongSiOrganizer.ico') -Destination (Join-Path $outputFull '应用图标.ico')

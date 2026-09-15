@@ -83,7 +83,7 @@ internal sealed class OnboardingWindow : Window
         _chooseArchiveRoot = chooseArchiveRoot;
         _rootSelectionRequired = rootSelectionRequired;
         _hasValidArchiveRoot = ArchiveScope.IsAvailable(rootPath);
-        Title = "文件快速归档 · 新手引导";
+        Title = "灵环·文件快速整理 · 新手引导";
         Width = 760;
         Height = 520;
         WindowStyle = WindowStyle.None;
@@ -321,7 +321,7 @@ internal sealed class OnboardingWindow : Window
         };
         brand.Children.Add(new TextBlock
         {
-            Text = "文件快速归档",
+            Text = "灵环·文件快速整理",
             FontSize = 13.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = UiVisuals.Brush(UiVisuals.TextPrimary)
@@ -718,7 +718,7 @@ internal sealed class OnboardingWindow : Window
         });
         var name = new TextBlock
         {
-            Text = "文件快速归档",
+            Text = "灵环·文件快速整理",
             Margin = new Thickness(7, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             FontSize = 12.5,

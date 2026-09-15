@@ -7,17 +7,17 @@ SetCompressorDictSize 64
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 
-!define PRODUCT_NAME "文件快速归档"
+!define PRODUCT_NAME "灵环·文件快速整理"
 !define PRODUCT_VERSION "0.5.5"
-!define PRODUCT_EXE "文件快速归档.exe"
+!define PRODUCT_EXE "灵环·文件快速整理.exe"
 !define PRODUCT_KEY "Software\FileQuickArchive"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\FileQuickArchive"
 !define PROJECT_ROOT "${__FILEDIR__}\.."
-!define SOURCE_DIR "${PROJECT_ROOT}\artifacts\FileQuickArchive-0.5.5-win-x64"
+!define SOURCE_DIR "${PROJECT_ROOT}\artifacts\LingRing-0.5.5-win-x64"
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "${PROJECT_ROOT}\artifacts\文件快速归档-${PRODUCT_VERSION}-安装程序.exe"
-InstallDir "$LOCALAPPDATA\Programs\FileQuickArchive"
+OutFile "${PROJECT_ROOT}\artifacts\灵环·文件快速整理-${PRODUCT_VERSION}-安装程序.exe"
+InstallDir "$LOCALAPPDATA\Programs\LingRing"
 InstallDirRegKey HKCU "${PRODUCT_KEY}" "InstallDir"
 BrandingText "${PRODUCT_NAME}"
 ShowInstDetails show
@@ -76,7 +76,7 @@ Function .onInit
   System::Call 'kernel32::OpenMutexW(i 0x00100000, i 0, w "Local\GongSiOrganizer.RadialPrototype.v1") p.r0'
   StrCmp $0 0 NotRunning
   System::Call 'kernel32::CloseHandle(p r0)'
-  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "检测到${PRODUCT_NAME}正在运行。$\r$\n请先右击托盘图标并选择“退出文件快速归档”，然后点击“重试”。" IDRETRY CheckRunning IDCANCEL CancelInstall
+  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "检测到${PRODUCT_NAME}正在运行。$\r$\n请先右击托盘图标并选择“退出${PRODUCT_NAME}”，然后点击“重试”。" IDRETRY CheckRunning IDCANCEL CancelInstall
   CancelInstall:
     Abort
   NotRunning:
@@ -131,6 +131,13 @@ Section "安装主程序" MainSection
   File /oname=${PRODUCT_EXE} "${SOURCE_DIR}\GongSiOrganizer.RadialPrototype.exe"
   File /oname=使用说明.txt "${SOURCE_DIR}\使用说明.txt"
   File /oname=应用图标.ico "${SOURCE_DIR}\应用图标.ico"
+  ; 移除旧名称遗留的可执行文件与快捷方式，避免升级后残留
+  Delete "$INSTDIR\文件快速归档.exe"
+  Delete "$DESKTOP\文件快速归档.lnk"
+  Delete "$SMSTARTUP\文件快速归档.lnk"
+  Delete "$SMPROGRAMS\文件快速归档\文件快速归档.lnk"
+  Delete "$SMPROGRAMS\文件快速归档\卸载文件快速归档.lnk"
+  RMDir "$SMPROGRAMS\文件快速归档"
   WriteUninstaller "$INSTDIR\卸载${PRODUCT_NAME}.exe"
 
   WriteRegStr HKCU "${PRODUCT_KEY}" "InstallDir" "$INSTDIR"

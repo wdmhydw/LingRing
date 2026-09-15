@@ -34,7 +34,7 @@ internal sealed class TrayIconService : IDisposable
         _icon = new Forms.NotifyIcon
         {
             Icon = _applicationIcon,
-            Text = "文件快速归档",
+            Text = "灵环·文件快速整理",
             Visible = true
         };
         _icon.MouseUp += OnIconMouseUp;
@@ -63,7 +63,7 @@ internal sealed class TrayIconService : IDisposable
     public void SetBusyStatus(string? status)
     {
         var text = string.IsNullOrWhiteSpace(status)
-            ? "文件快速归档"
+            ? "灵环·文件快速整理"
             : status;
         _icon.Text = text.Length <= 63 ? text : text[..63];
     }

@@ -38,8 +38,8 @@ public partial class App : System.Windows.Application
         if (!createdNew)
         {
             System.Windows.MessageBox.Show(
-                "文件快速归档已经在运行，请查看系统托盘。",
-                "文件快速归档",
+                "灵环·文件快速整理已经在运行，请查看系统托盘。",
+                "灵环·文件快速整理",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             Shutdown();
@@ -245,7 +245,7 @@ public partial class App : System.Windows.Application
             CaptureTrace("startup failed: " + exception);
             System.Windows.MessageBox.Show(
                 exception.Message,
-                "文件快速归档启动失败",
+                "灵环·文件快速整理启动失败",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown();
@@ -834,7 +834,7 @@ public partial class App : System.Windows.Application
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        _tray?.ShowWarning("文件快速归档发生错误", e.Exception.Message);
+        _tray?.ShowWarning("灵环·文件快速整理发生错误", e.Exception.Message);
         e.Handled = true;
     }
 

@@ -134,7 +134,7 @@ internal sealed class TrayMenuWindow : Window
         _pauseToggle = pauseToggle;
         body.Children.Add(_pauseToggle.Row);
         body.Children.Add(CreateSeparator());
-        body.Children.Add(CreateActionRow("×", "退出文件快速归档", null, () => InvokeAndHide(exit), true));
+        body.Children.Add(CreateActionRow("×", "退出灵环·文件快速整理", null, () => InvokeAndHide(exit), true));
 
         _surface = new Border
         {
@@ -219,7 +219,7 @@ internal sealed class TrayMenuWindow : Window
         };
         title.Children.Add(new TextBlock
         {
-            Text = "文件快速归档",
+            Text = "灵环·文件快速整理",
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
             Foreground = UiVisuals.Brush(UiVisuals.TextPrimary)
