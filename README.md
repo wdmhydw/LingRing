@@ -128,6 +128,8 @@ dotnet test tests\GongSiOrganizer.Core.Tests\GongSiOrganizer.Core.Tests.csproj -
 - [完整使用说明](docs/同心圆原型使用说明.txt)
 - [架构与安全说明](docs/架构与安全说明.md)
 - [v0.6.3 更新说明](docs/release-v0.6.3.md)
+- [v0.6.3 构建与发行验收](docs/RELEASE_VERIFICATION_0.6.3.md)
+- [公开截图脱敏说明](docs/SCREENSHOT_PRIVACY.md)
 - [当前验收记录](docs/ACCEPTANCE_LOG.md)
 - [v0.5.5 发行说明](docs/release-v0.5.5.md)
 - [v0.5.4 发行说明](docs/release-v0.5.4.md)
