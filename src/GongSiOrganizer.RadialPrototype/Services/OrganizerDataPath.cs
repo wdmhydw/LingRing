@@ -11,6 +11,13 @@ internal static class OrganizerDataPath
 
     private static string ResolveWritableDirectory()
     {
+        var isolatedRoot = Environment.GetEnvironmentVariable("LINGRING_DATA_ROOT");
+        if (!string.IsNullOrWhiteSpace(isolatedRoot))
+        {
+            var fullPath = Path.GetFullPath(isolatedRoot);
+            if (CanWriteTo(fullPath)) return fullPath;
+            throw new IOException("无法写入指定的灵环数据目录。");
+        }
         var candidates = new[]
         {
             Path.Combine(
@@ -19,7 +26,6 @@ internal static class OrganizerDataPath
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "GongSiOrganizer.RadialPrototype"),
-            Path.Combine(AppContext.BaseDirectory, "data"),
             Path.Combine(Path.GetTempPath(), "GongSiOrganizer.RadialPrototype")
         };
 

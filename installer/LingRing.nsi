@@ -6,14 +6,19 @@ SetCompressorDictSize 64
 !include "MUI2.nsh"
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
 
 !define PRODUCT_NAME "灵环·文件快速整理"
-!define PRODUCT_VERSION "0.5.5"
+!ifndef PRODUCT_VERSION
+  !error "Pass /DPRODUCT_VERSION from the application project."
+!endif
 !define PRODUCT_EXE "灵环·文件快速整理.exe"
 !define PRODUCT_KEY "Software\FileQuickArchive"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\FileQuickArchive"
 !define PROJECT_ROOT "${__FILEDIR__}\.."
-!define SOURCE_DIR "${PROJECT_ROOT}\artifacts\LingRing-0.5.5-win-x64"
+!ifndef SOURCE_DIR
+  !define SOURCE_DIR "${PROJECT_ROOT}\artifacts\LingRing-${PRODUCT_VERSION}-win-x64-portable"
+!endif
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 OutFile "${PROJECT_ROOT}\artifacts\灵环·文件快速整理-${PRODUCT_VERSION}-安装程序.exe"
@@ -26,7 +31,7 @@ ShowUninstDetails show
 Icon "${PROJECT_ROOT}\src\GongSiOrganizer.RadialPrototype\Assets\GongSiOrganizer.ico"
 UninstallIcon "${PROJECT_ROOT}\src\GongSiOrganizer.RadialPrototype\Assets\GongSiOrganizer.ico"
 
-VIProductVersion "0.5.5.0"
+VIProductVersion "${PRODUCT_VERSION}.0"
 VIAddVersionKey /LANG=2052 "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=2052 "FileDescription" "${PRODUCT_NAME} 安装程序"
 VIAddVersionKey /LANG=2052 "FileVersion" "${PRODUCT_VERSION}"
@@ -50,6 +55,7 @@ Var DesktopCheckbox
 Var StartupCheckbox
 Var DesktopState
 Var StartupState
+Var ExtractOnly
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -65,6 +71,13 @@ Page custom OptionsPageCreate OptionsPageLeave
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
 Function .onInit
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/EXTRACTONLY" $R1
+  ${IfNot} ${Errors}
+    StrCpy $ExtractOnly 1
+    Return
+  ${EndIf}
   StrCpy $DesktopState ${BST_CHECKED}
   StrCpy $StartupState ${BST_UNCHECKED}
   ${If} ${FileExists} "$SMSTARTUP\${PRODUCT_NAME}.lnk"
@@ -128,9 +141,13 @@ FunctionEnd
 
 Section "安装主程序" MainSection
   SetOutPath "$INSTDIR"
-  File /oname=${PRODUCT_EXE} "${SOURCE_DIR}\GongSiOrganizer.RadialPrototype.exe"
+  File /oname=${PRODUCT_EXE} "${SOURCE_DIR}\${PRODUCT_EXE}"
   File /oname=使用说明.txt "${SOURCE_DIR}\使用说明.txt"
   File /oname=应用图标.ico "${SOURCE_DIR}\应用图标.ico"
+  File /oname=build-info.json "${SOURCE_DIR}\build-info.json"
+  ${If} $ExtractOnly == 1
+    Goto MainSectionDone
+  ${EndIf}
   ; 移除旧名称遗留的可执行文件与快捷方式，避免升级后残留
   Delete "$INSTDIR\文件快速归档.exe"
   Delete "$DESKTOP\文件快速归档.lnk"
@@ -165,6 +182,7 @@ Section "安装主程序" MainSection
   ${If} $StartupState == ${BST_CHECKED}
     CreateShortcut "$SMSTARTUP\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_EXE}" "" "$INSTDIR\${PRODUCT_EXE}" 0
   ${EndIf}
+  MainSectionDone:
 SectionEnd
 
 Section "Uninstall"
@@ -177,6 +195,7 @@ Section "Uninstall"
   Delete "$INSTDIR\${PRODUCT_EXE}"
   Delete "$INSTDIR\使用说明.txt"
   Delete "$INSTDIR\应用图标.ico"
+  Delete "$INSTDIR\build-info.json"
   Delete "$INSTDIR\卸载${PRODUCT_NAME}.exe"
   RMDir "$INSTDIR"
 

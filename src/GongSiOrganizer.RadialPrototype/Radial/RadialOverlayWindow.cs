@@ -1,10 +1,12 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using GongSiOrganizer.Core;
+using GongSiOrganizer.RadialPrototype.Presentation;
 using GongSiOrganizer.RadialPrototype.Services;
 using Brushes = System.Windows.Media.Brushes;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -14,6 +16,11 @@ namespace GongSiOrganizer.RadialPrototype.Radial;
 internal sealed class RadialOverlayWindow : Window
 {
     private readonly RadialMenuControl _control;
+    private readonly Canvas _surface;
+    private readonly RadialNameTip _nameTip;
+    private string _rootPath = "";
+    private int _visibilityGeneration;
+    private bool _closing;
     private OverlayPlacement? _placement;
     private IReadOnlyList<string> _sourceFiles = [];
     private bool _isDemo;
@@ -34,13 +41,20 @@ internal sealed class RadialOverlayWindow : Window
         _control.Confirmed += OnConfirmed;
         _control.CreateFolderRequested += OnCreateFolderRequested;
         _control.DismissRequested += HideOverlay;
-        Content = _control;
+        _nameTip = new RadialNameTip(_control);
+        _control.NameTipRequested += (folder, point) => _nameTip.ShowName(folder, _rootPath, _sourceFiles, point);
+        _control.NameTipDismissRequested += () => _nameTip.IsOpen = false;
+        _surface = new Canvas();
+        _surface.Children.Add(_control);
+        Content = _surface;
+        Closed += (_, _) => _control.ReleaseSession();
         PreviewKeyDown += OnPreviewKeyDown;
     }
 
     public event Action<IReadOnlyList<string>, string>? MoveRequested;
     public event Action<string>? DemoConfirmed;
     public event Action<string, bool>? CreateFolderRequested;
+    public event Action? GuideRequested;
 
     public void ShowMenu(
         NativeScreenPoint point,
@@ -53,6 +67,7 @@ internal sealed class RadialOverlayWindow : Window
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         _isDemo = primeForDemo;
+        _rootPath = snapshot.RootPath;
         var placement = NativeDisplay.CreatePlacement(point, false);
         var session = new RadialMenuSession(snapshot.Folders);
         if (primeForDemo) session.PrimeForDemo();
@@ -71,6 +86,7 @@ internal sealed class RadialOverlayWindow : Window
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         _isDemo = false;
+        _rootPath = snapshot.RootPath;
         var placement = NativeDisplay.CreatePlacement(point, false);
         var session = new RadialMenuSession(snapshot.Folders);
 
@@ -90,10 +106,29 @@ internal sealed class RadialOverlayWindow : Window
                 // The abandoned lookup still warms the shared directory cache.
                 session = new RadialMenuSession(snapshot.Folders);
             }
+            catch (OperationCanceledException) { candidate.Dispose(); throw; }
+            if (!ReferenceEquals(candidate, session)) candidate.Dispose();
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested) { session.Dispose(); cancellationToken.ThrowIfCancellationRequested(); }
         ShowCore(placement, session, _sourceFiles.Count);
+    }
+
+    public async Task ShowDemoAsync(NativeScreenPoint point, FolderCatalogResult snapshot, string? startPath)
+    {
+        var session = new RadialMenuSession(snapshot.Folders);
+        if (!string.IsNullOrWhiteSpace(startPath)) await session.SelectStartPathAsync(startPath);
+        for (var ring = 0; ring < 2; ring++)
+        {
+            var folder = session.GetFolder(ring, 0);
+            if (folder is null) break;
+            if (folder.Children is AsyncFolderMenuNodeList children) await children.EnsureLoadedAsync();
+            session.Hover(ring, 0);
+        }
+        _sourceFiles = ["2026年度推广方案_客户终审确认版_09月17日.pptx"];
+        _isDemo = true;
+        _rootPath = snapshot.RootPath;
+        ShowCore(NativeDisplay.CreatePlacement(point, false), session, 1);
     }
 
     public void ShowInvalid(NativeScreenPoint point)
@@ -105,8 +140,22 @@ internal sealed class RadialOverlayWindow : Window
 
     public void HideOverlay()
     {
+        if (!IsVisible || _closing) return;
+        _closing = true; _control.CancelIntent(true); _surface.IsHitTestVisible = false;
+        var generation = ++_visibilityGeneration;
+        if (!UiMotion.Enabled) { HideImmediately(); return; }
+        var fade = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(UiMotion.Exit))
+        { FillBehavior = FillBehavior.Stop };
+        fade.Completed += (_, _) => { if (generation == _visibilityGeneration) HideImmediately(); };
+        BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void HideImmediately()
+    {
+        ++_visibilityGeneration; _closing = false;
+        BeginAnimation(OpacityProperty, null); Opacity = 1;
         if (IsVisible) Hide();
-        _control.ReleaseSession();
+        _control.ReleaseSession(); _surface.IsHitTestVisible = true;
     }
 
     public bool PromptForFolderName(
@@ -135,12 +184,13 @@ internal sealed class RadialOverlayWindow : Window
         string selectedRelativePath,
         string? initialRelativePath = null)
     {
-        if (!IsVisible || _placement is null) return;
+        if (!IsVisible || _closing || _placement is null) return;
         var session = new RadialMenuSession(snapshot.Folders);
         _ = await session.SelectPathAsync(
             selectedRelativePath,
             initialRelativePath);
-        if (!IsVisible || _placement is null) return;
+        if (!IsVisible || _closing || _placement is null) return;
+        _rootPath = snapshot.RootPath;
         _control.Configure(_placement.Layout, session, _sourceFiles.Count);
         _control.Focus();
     }
@@ -150,7 +200,7 @@ internal sealed class RadialOverlayWindow : Window
 
     public bool ShouldDismissForGlobalClick(NativeScreenPoint point)
     {
-        if (!IsVisible || _folderNameDialogOpen || _placement is null) return false;
+        if (!IsVisible || _closing || _folderNameDialogOpen || _placement is null) return false;
         var localPoint = new System.Windows.Point(
             (point.X - _placement.ScreenLeftPixels) / _placement.DpiScale,
             (point.Y - _placement.ScreenTopPixels) / _placement.DpiScale);
@@ -172,7 +222,7 @@ internal sealed class RadialOverlayWindow : Window
             dpi.PixelsPerInchX,
             dpi.PixelsPerInchY,
             PixelFormats.Pbgra32);
-        bitmap.Render(_control);
+        bitmap.Render(_surface);
 
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
@@ -188,10 +238,13 @@ internal sealed class RadialOverlayWindow : Window
         int sourceItemCount)
     {
         _placement = placement;
+        ++_visibilityGeneration; _closing = false;
+        BeginAnimation(OpacityProperty, null); Opacity = 1; _surface.IsHitTestVisible = true;
         Width = placement.Layout.WindowBounds.Width;
         Height = placement.Layout.WindowBounds.Height;
         _control.Width = Width;
         _control.Height = Height;
+        _surface.Width = Width; _surface.Height = Height;
         _control.Configure(placement.Layout, session, sourceItemCount);
 
         if (!IsVisible) Show();
@@ -203,29 +256,9 @@ internal sealed class RadialOverlayWindow : Window
 
     private void PlayOpenAnimation(RadialPoint localCenter)
     {
-        var scale = new ScaleTransform(0.92, 0.92, localCenter.X, localCenter.Y);
-        _control.RenderTransform = scale;
-        _control.Opacity = 0;
-        var scaleEasing = new SineEase { EasingMode = EasingMode.EaseOut };
-        var opacityEasing = new SineEase { EasingMode = EasingMode.EaseOut };
-        scale.BeginAnimation(
-            ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(0.92, 1, TimeSpan.FromMilliseconds(175))
-            {
-                EasingFunction = scaleEasing
-            });
-        scale.BeginAnimation(
-            ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(0.92, 1, TimeSpan.FromMilliseconds(175))
-            {
-                EasingFunction = scaleEasing
-            });
-        _control.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(145))
-            {
-                EasingFunction = opacityEasing
-            });
+        _control.RenderTransform = Transform.Identity;
+        _control.Opacity = 1;
+        _control.PlayOpen();
     }
 
     private void OnConfirmed(string relativePath)
@@ -233,7 +266,7 @@ internal sealed class RadialOverlayWindow : Window
         if (_sourceFiles.Count == 0) return;
         var sourceFiles = _sourceFiles;
         var isDemo = _isDemo;
-        HideOverlay();
+        HideImmediately();
         if (isDemo)
             DemoConfirmed?.Invoke(relativePath);
         else
@@ -245,6 +278,13 @@ internal sealed class RadialOverlayWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.F1)
+        {
+            _control.CancelIntent(true);
+            GuideRequested?.Invoke();
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.Escape)
         {
             HideOverlay();

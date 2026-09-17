@@ -24,6 +24,7 @@ internal sealed record PrototypeOptions(
     string? CapturePath,
     int CaptureDelayMilliseconds)
 {
+    public string DemoPosition { get; init; } = "center";
     public bool IsDemoLaunch =>
         Demo ||
         DemoCorner ||
@@ -89,6 +90,11 @@ internal sealed record PrototypeOptions(
                 demoOnboardingPage = Math.Clamp(parsedPage, 0, 3);
         }
 
+        var demoPosition = "center";
+        for (var index = 0; index < args.Count - 1; index++)
+            if (args[index].Equals("--demo-position", StringComparison.OrdinalIgnoreCase))
+                demoPosition = args[index + 1].ToLowerInvariant();
+
         return new PrototypeOptions(
             profile.RootPath,
             profile.StartPath,
@@ -108,6 +114,6 @@ internal sealed record PrototypeOptions(
             args.Any(value => value.Equals("--no-listener", StringComparison.OrdinalIgnoreCase)),
             selectionProbePath,
             capturePath,
-            captureDelayMilliseconds);
+            captureDelayMilliseconds) { DemoPosition = demoPosition };
     }
 }

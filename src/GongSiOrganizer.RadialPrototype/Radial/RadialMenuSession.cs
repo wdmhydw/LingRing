@@ -8,7 +8,7 @@ public sealed record RadialRingView(
     int Offset,
     string? SelectedRelativePath);
 
-public sealed class RadialMenuSession
+public sealed class RadialMenuSession : IDisposable
 {
     private readonly IReadOnlyList<FolderMenuNode> _rootItems;
     private readonly List<FolderMenuNode> _path = [];
@@ -18,6 +18,7 @@ public sealed class RadialMenuSession
     private int _anchorDepth;
     private bool _outerSelectionHeld;
     private bool _outerPreviewPending;
+    private bool _disposed;
 
     public RadialMenuSession(IReadOnlyList<FolderMenuNode> rootItems)
     {
@@ -161,10 +162,22 @@ public sealed class RadialMenuSession
     public bool RotateAndPreview(int ringIndex, int direction, int slotIndex)
     {
         if (!Rotate(ringIndex, direction)) return false;
-        _ = ringIndex == 2
-            ? PreviewOuterSelection(slotIndex)
-            : Hover(ringIndex, slotIndex);
+        // Reading a new outer-ring name must never change the navigation path
+        // or center destination, including when an async prefetch completes.
+        if (ringIndex == 2)
+        {
+            var folder = GetFolder(ringIndex, slotIndex);
+            if (folder is not null) _ = Prefetch(folder);
+        }
+        else _ = Hover(ringIndex, slotIndex);
         return true;
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        foreach (var list in _observedLists.Keys) list.Changed -= OnChildrenChanged;
+        _observedLists.Clear();
     }
 
     public bool RotateAndHover(int ringIndex, int direction, int slotIndex)
@@ -292,6 +305,7 @@ public sealed class RadialMenuSession
 
     public bool Prefetch(FolderMenuNode folder)
     {
+        if (_disposed) return false;
         if (folder.Children is not AsyncFolderMenuNodeList asyncChildren) return false;
         Observe(asyncChildren, folder);
         return asyncChildren.BeginLoad();
@@ -363,6 +377,7 @@ public sealed class RadialMenuSession
 
     private void Observe(AsyncFolderMenuNodeList list, FolderMenuNode owner)
     {
+        if (_disposed) return;
         if (_observedLists.TryAdd(list, owner))
             list.Changed += OnChildrenChanged;
     }
@@ -383,6 +398,7 @@ public sealed class RadialMenuSession
 
     private void ApplyChildrenChanged(object? sender)
     {
+        if (_disposed) return;
         if (sender is AsyncFolderMenuNodeList list &&
             _observedLists.TryGetValue(list, out var owner) &&
             CurrentDestination is not null &&

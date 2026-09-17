@@ -98,14 +98,12 @@ public sealed class RadialMenuSessionTests
 
         Assert.True(session.RotateAndPreview(2, 1, 0));
 
-        Assert.Equal(3, session.Path.Count);
-        Assert.Equal("第三级2", session.CurrentDestination!.DisplayName);
+        Assert.Equal(2, session.Path.Count);
+        Assert.Equal("第二级", session.CurrentDestination!.DisplayName);
         Assert.Equal(
             @"第一级\第二级",
             session.GetRingView(1).SelectedRelativePath);
-        Assert.Equal(
-            @"第一级\第二级\第三级2",
-            session.GetRingView(2).SelectedRelativePath);
+        Assert.Null(session.GetRingView(2).SelectedRelativePath);
         Assert.Equal("第三级2", session.GetRingView(2).Slots[0]!.DisplayName);
 
         Assert.True(session.Hover(2, 0));

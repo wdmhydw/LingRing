@@ -55,17 +55,17 @@ internal sealed class OnboardingWindow : Window
         new(
             "从鼠标所在位置开始归档",
             "不用先打开软件，也不用拖着文件寻找窗口。",
-            ["在桌面或资源管理器中选中文件", "按一下鼠标中键，轮盘就在当前位置出现"],
+            ["在桌面或资源管理器中选中文件", "按中键，圆环以点按位置为圆心出现", "各圈按数量均分；长名称停留片刻可看全"],
             GuideIllustration.Wheel),
         new(
-            "移动鼠标，逐层找到目录",
-            "轮盘会沿着你的选择自然展开，目录多时直接滚动。",
-            ["悬停某一扇区，展开它的下一级", "滚轮切换同级目录；右键返回上一级"],
+            "安心辨认，移向蓝弧再进入",
+            "前两圈悬停展开；第三圈起，由你决定何时进入。",
+            ["停在名称上，只查看，不自动下钻", "从扇区移向呼吸蓝弧，进入下一层", "稍移出蓝弧再移回；右键逐级返回", "靠近边角时，各圈按剩余空间舒展"],
             GuideIllustration.Navigation),
         new(
             "确认移动，也能临时建目录",
             "所有文件操作都围绕当前悬停的目标完成。",
-            ["左键确认并直接移动，不额外复制", "Ctrl + 左键在当前目标下新建文件夹", "点击轮盘外空白或按 Esc 取消"],
+            ["左键点击名称扇区，直接移动到该目录", "蓝弧用于进入，点击蓝弧不会移动文件", "Ctrl + 左键新建文件夹；滚轮切换同级", "点击轮盘外空白或按 Esc 取消"],
             GuideIllustration.Actions),
         new(
             "选好轮盘起点，马上开始",
@@ -377,19 +377,19 @@ internal sealed class OnboardingWindow : Window
         UpdateNavigationAvailability();
         RenderDots();
 
-        if (!animate) return;
-        var translate = new TranslateTransform(direction > 0 ? 18 : -18, 0);
+        if (!animate || !UiMotion.Enabled) return;
+        var translate = new TranslateTransform(direction > 0 ? 28 : -28, 0);
         _pageHost.RenderTransform = translate;
         _pageHost.Opacity = 0;
         _pageHost.BeginAnimation(
             OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(170))
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(240))
             {
                 EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut }
             });
         translate.BeginAnimation(
             TranslateTransform.XProperty,
-            new DoubleAnimation(translate.X, 0, TimeSpan.FromMilliseconds(210))
+            new DoubleAnimation(translate.X, 0, TimeSpan.FromMilliseconds(340))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             });
@@ -532,7 +532,7 @@ internal sealed class OnboardingWindow : Window
         return illustration switch
         {
             GuideIllustration.Wheel => CreateWheelIllustration(),
-            GuideIllustration.Navigation => CreateNavigationIllustration(),
+            GuideIllustration.Navigation => new BlueArcGuide(),
             GuideIllustration.Actions => CreateActionsIllustration(),
             _ => CreateTrayIllustration()
         };
@@ -580,56 +580,6 @@ internal sealed class OnboardingWindow : Window
         Canvas.SetLeft(center, 96);
         Canvas.SetTop(center, 96);
         canvas.Children.Add(center);
-        return canvas;
-    }
-
-    private static FrameworkElement CreateNavigationIllustration()
-    {
-        var canvas = CreateIllustrationCanvas();
-        var labels = new[] { "公司", "项目", "资料" };
-        for (var index = 0; index < labels.Length; index++)
-        {
-            var card = new Border
-            {
-                Width = 170,
-                Height = 64,
-                CornerRadius = new CornerRadius(14),
-                Background = UiVisuals.Brush(index == 2
-                    ? Color.FromRgb(220, 237, 255)
-                    : Color.FromRgb(249, 251, 254)),
-                BorderBrush = UiVisuals.Brush(index == 2 ? UiVisuals.Accent : UiVisuals.BorderColor),
-                BorderThickness = new Thickness(index == 2 ? 1.2 : 0.8),
-                Effect = new DropShadowEffect { BlurRadius = 12, ShadowDepth = 3, Opacity = 0.1 },
-                Child = new Grid
-                {
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = labels[index],
-                            Margin = new Thickness(18, 0, 0, 0),
-                            VerticalAlignment = VerticalAlignment.Center,
-                            FontSize = 14,
-                            FontWeight = FontWeights.SemiBold,
-                            Foreground = UiVisuals.Brush(UiVisuals.TextPrimary)
-                        },
-                        new TextBlock
-                        {
-                            Text = "›",
-                            Margin = new Thickness(0, 0, 17, 0),
-                            HorizontalAlignment = WpfHorizontalAlignment.Right,
-                            VerticalAlignment = VerticalAlignment.Center,
-                            FontFamily = new FontFamily("Segoe UI"),
-                            FontSize = 23,
-                            Foreground = UiVisuals.Brush(UiVisuals.Accent)
-                        }
-                    }
-                }
-            };
-            Canvas.SetLeft(card, 34 + index * 37);
-            Canvas.SetTop(card, 43 + index * 78);
-            canvas.Children.Add(card);
-        }
         return canvas;
     }
 
@@ -820,25 +770,26 @@ internal sealed class OnboardingWindow : Window
 
     private void PlayWindowOpen()
     {
+        if (!UiMotion.Enabled) { Opacity = 1; return; }
         _surface.RenderTransformOrigin = new Point(0.5, 0.5);
-        var scale = new ScaleTransform(0.975, 0.975);
+        var scale = new ScaleTransform(0.95, 0.95);
         _surface.RenderTransform = scale;
         Opacity = 0;
         BeginAnimation(
             OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(170))
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(240))
             {
                 EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut }
             });
         scale.BeginAnimation(
             ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(0.975, 1, TimeSpan.FromMilliseconds(220))
+            new DoubleAnimation(0.95, 1, TimeSpan.FromMilliseconds(360))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             });
         scale.BeginAnimation(
             ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(0.975, 1, TimeSpan.FromMilliseconds(220))
+            new DoubleAnimation(0.95, 1, TimeSpan.FromMilliseconds(360))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             });

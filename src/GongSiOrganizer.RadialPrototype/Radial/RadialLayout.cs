@@ -25,7 +25,8 @@ public readonly record struct RadialRect(double X, double Y, double Width, doubl
     }
 }
 
-public readonly record struct RadialRing(double InnerRadius, double OuterRadius);
+public readonly record struct RadialRing(double InnerRadius, double OuterRadius,
+    double StartAngle = -135, double SweepAngle = 360);
 
 public readonly record struct RadialHit(int RingIndex, int SlotIndex, bool IsCenter)
 {
@@ -38,22 +39,22 @@ public sealed record RadialLayoutPlan(
     RadialPoint ScreenCenter,
     RadialRect WindowBounds,
     RadialPoint LocalCenter,
-    double StartAngle,
-    double SweepAngle,
     double CenterRadius,
     IReadOnlyList<RadialRing> Rings,
     bool IsInvalidTarget)
 {
     public double OuterRadius => Rings.Count == 0 ? CenterRadius : Rings[^1].OuterRadius;
+    public double StartAngle => Rings.Count == 0 ? 0 : Rings[^1].StartAngle;
+    public double SweepAngle => Rings.Count == 0 ? 0 : Rings[^1].SweepAngle;
 }
 
 public static class RadialLayout
 {
     public const int SlotsPerRing = 4;
-    public const double DefaultCenterRadius = 62;
+    public const double DefaultCenterRadius = 50;
     public const double InvalidCenterRadius = 50;
-    public const double RingWidth = 62;
-    public const double RingGap = 3;
+    public const double RingWidth = 60;
+    public const double RingGap = 10;
     public const double OuterMargin = 12;
 
     public static RadialLayoutPlan Create(
@@ -61,23 +62,20 @@ public static class RadialLayout
         RadialRect workArea,
         bool invalidTarget = false)
     {
+        var room = Math.Min(Math.Max(clickPoint.X - workArea.Left, workArea.Right - clickPoint.X),
+            Math.Max(clickPoint.Y - workArea.Top, workArea.Bottom - clickPoint.Y)) - OuterMargin;
         var rings = invalidTarget
             ? Array.Empty<RadialRing>()
-            : CreateRings();
+            : CreateRings(Math.Clamp(room, 126, 258), clickPoint, workArea);
         var centerRadius = invalidTarget ? InvalidCenterRadius : DefaultCenterRadius;
-        var outerRadius = invalidTarget ? centerRadius : rings[^1].OuterRadius;
-        var (start, sweep) = invalidTarget
-            ? (0d, 0d)
-            : ChooseArc(clickPoint, workArea, outerRadius + OuterMargin);
-
-        var idealBounds = invalidTarget
-            ? new RadialRect(
-                clickPoint.X - centerRadius - OuterMargin,
-                clickPoint.Y - centerRadius - OuterMargin,
-                (centerRadius + OuterMargin) * 2,
-                (centerRadius + OuterMargin) * 2)
-            : GetSectorBounds(clickPoint, outerRadius + OuterMargin, start, sweep)
-                .UnionCircle(clickPoint, centerRadius + OuterMargin);
+        var idealBounds = new RadialRect(clickPoint.X - centerRadius - OuterMargin,
+            clickPoint.Y - centerRadius - OuterMargin, (centerRadius + OuterMargin) * 2,
+            (centerRadius + OuterMargin) * 2);
+        // Every ring owns its usable arc. Inner rings can use space that the
+        // future outer ring cannot; opening another level never reflows them.
+        foreach (var ring in rings)
+            idealBounds = Union(idealBounds, GetSectorBounds(clickPoint,
+                ring.OuterRadius + OuterMargin, ring.StartAngle, ring.SweepAngle));
 
         var clippedBounds = idealBounds.Intersect(workArea);
         var localCenter = new RadialPoint(
@@ -88,8 +86,6 @@ public static class RadialLayout
             clickPoint,
             clippedBounds,
             localCenter,
-            start,
-            sweep,
             centerRadius,
             rings,
             invalidTarget);
@@ -144,23 +140,37 @@ public static class RadialLayout
             return RadialHit.None;
 
         var angle = NormalizeAngle(Math.Atan2(dy, dx) * 180 / Math.PI);
-        var relative = RelativeAngle(angle, plan.StartAngle);
-        if (plan.SweepAngle < 360 && relative > plan.SweepAngle)
+        var activeRing = plan.Rings[ringIndex];
+        var relative = RelativeAngle(angle, SlotStart(activeRing, slotCount));
+        if (activeRing.SweepAngle < 360 && relative > activeRing.SweepAngle)
             return RadialHit.None;
 
-        var slotSweep = plan.SweepAngle / slotCount;
-        var slot = Math.Min(slotCount - 1, (int)Math.Floor(relative / slotSweep));
+        var slotSweep = SlotSweep(activeRing, slotCount);
+        var slot = Math.Min(SlotsPerRing - 1, (int)Math.Floor(relative / slotSweep));
+        if (slot >= slotCount) return RadialHit.None;
         return new RadialHit(ringIndex, slot, false);
     }
 
-    private static RadialRing[] CreateRings()
+    internal static double SlotSweep(RadialRing ring, int visibleSlots) =>
+        ring.SweepAngle / Math.Clamp(visibleSlots, 1, SlotsPerRing);
+
+    internal static double SlotStart(RadialRing ring, int visibleSlots) =>
+        ring.SweepAngle >= 359.999 ? -90 - SlotSweep(ring, visibleSlots) / 2 : ring.StartAngle;
+
+    internal static double CellGap(RadialRing ring, int visibleSlots) =>
+        ring.SweepAngle >= 359.999 && visibleSlots == 1 ? 0 :
+            3 / ((ring.InnerRadius + ring.OuterRadius) / 2) * 180 / Math.PI;
+
+    private static RadialRing[] CreateRings(double outerRadius, RadialPoint point, RadialRect area)
     {
         var rings = new RadialRing[3];
-        var inner = DefaultCenterRadius + RingGap;
+        var inner = DefaultCenterRadius + 8;
+        var width = (outerRadius - inner - 2 * RingGap) / 3;
         for (var index = 0; index < rings.Length; index++)
         {
-            rings[index] = new RadialRing(inner, inner + RingWidth);
-            inner += RingWidth + RingGap;
+            var (start, sweep) = ChooseArc(point, area, inner + width);
+            rings[index] = new RadialRing(inner, inner + width, start, sweep);
+            inner += width + RingGap;
         }
 
         return rings;
@@ -169,22 +179,50 @@ public static class RadialLayout
     private static (double Start, double Sweep) ChooseArc(
         RadialPoint point,
         RadialRect workArea,
-        double needed)
+        double radius)
     {
-        var nearLeft = point.X - workArea.Left < needed;
-        var nearRight = workArea.Right - point.X < needed;
-        var nearTop = point.Y - workArea.Top < needed;
-        var nearBottom = workArea.Bottom - point.Y < needed;
-
-        if (nearLeft && nearTop) return (0, 90);
-        if (nearRight && nearTop) return (90, 90);
-        if (nearRight && nearBottom) return (180, 90);
-        if (nearLeft && nearBottom) return (270, 90);
-        if (nearTop) return (0, 180);
-        if (nearRight) return (90, 180);
-        if (nearBottom) return (180, 180);
-        if (nearLeft) return (270, 180);
-        return (-90, 360);
+        var left = Math.Max(0, point.X - workArea.Left - OuterMargin);
+        var right = Math.Max(0, workArea.Right - point.X - OuterMargin);
+        var top = Math.Max(0, point.Y - workArea.Top - OuterMargin);
+        var bottom = Math.Max(0, workArea.Bottom - point.Y - OuterMargin);
+        var cuts = new List<double> { 0, 360 };
+        void CutX(double x)
+        {
+            if (Math.Abs(x) >= radius) return;
+            var a = Math.Acos(x / radius) * 180 / Math.PI;
+            cuts.Add(a); cuts.Add(360 - a);
+        }
+        void CutY(double y)
+        {
+            if (Math.Abs(y) >= radius) return;
+            var a = Math.Asin(y / radius) * 180 / Math.PI;
+            cuts.Add(NormalizeAngle(a)); cuts.Add(NormalizeAngle(180 - a));
+        }
+        CutX(-left); CutX(right); CutY(-top); CutY(bottom);
+        var angles = cuts.Distinct().Order().ToArray();
+        var runs = new List<(double Start, double End)>();
+        for (var i = 0; i < angles.Length - 1; i++)
+        {
+            var mid = (angles[i] + angles[i + 1]) * Math.PI / 360;
+            var x = radius * Math.Cos(mid); var y = radius * Math.Sin(mid);
+            if (x < -left - 1e-8 || x > right + 1e-8 || y < -top - 1e-8 || y > bottom + 1e-8) continue;
+            if (runs.Count > 0 && Math.Abs(runs[^1].End - angles[i]) < 1e-8)
+                runs[^1] = (runs[^1].Start, angles[i + 1]);
+            else runs.Add((angles[i], angles[i + 1]));
+        }
+        if (runs.Count > 1 && runs[0].Start == 0 && runs[^1].End == 360)
+        {
+            runs[^1] = (runs[^1].Start, runs[0].End + 360);
+            runs.RemoveAt(0);
+        }
+        if (runs.Count == 0)
+        {
+            // A desktop smaller than the minimum control cannot fit a ring.
+            // Preserve the inward fallback and let the window clip to the screen.
+            return (right >= left ? (bottom >= top ? 0 : 270) : (bottom >= top ? 90 : 180), 90);
+        }
+        var best = runs.MaxBy(run => run.End - run.Start);
+        return best.End - best.Start >= 359.999 ? (-135, 360) : (best.Start, best.End - best.Start);
     }
 
     private static RadialRect GetSectorBounds(
@@ -212,15 +250,12 @@ public static class RadialLayout
         return new RadialRect(minX, minY, maxX - minX, maxY - minY);
     }
 
-    private static RadialRect UnionCircle(
-        this RadialRect rect,
-        RadialPoint center,
-        double radius)
+    private static RadialRect Union(RadialRect rect, RadialRect other)
     {
-        var left = Math.Min(rect.Left, center.X - radius);
-        var top = Math.Min(rect.Top, center.Y - radius);
-        var right = Math.Max(rect.Right, center.X + radius);
-        var bottom = Math.Max(rect.Bottom, center.Y + radius);
+        var left = Math.Min(rect.Left, other.Left);
+        var top = Math.Min(rect.Top, other.Top);
+        var right = Math.Max(rect.Right, other.Right);
+        var bottom = Math.Max(rect.Bottom, other.Bottom);
         return new RadialRect(left, top, right - left, bottom - top);
     }
 

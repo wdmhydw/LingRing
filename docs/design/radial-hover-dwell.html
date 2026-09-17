@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>灵环 · B版分段悬停</title>
+<style>
+:root{color-scheme:light;--ink:#213044;--muted:#58677a;--blue:#266cde;--line:#dce3ec;--curve:cubic-bezier(.22,1,.36,1);font-family:"Segoe UI","Microsoft YaHei UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:var(--ink)}button,select{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid #266cde;outline-offset:4px}button:disabled{cursor:default;opacity:.5}
+.page{max-width:1272px;margin:auto;padding:25px 32px 30px}.masthead{display:flex;align-items:center;justify-content:space-between;font-size:12px;letter-spacing:.04em;color:var(--muted)}.brand{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:700;font-size:16px}.brandmark{width:26px;height:26px;border:6px solid var(--blue);border-radius:50%;position:relative}.brandmark:after{content:"";position:absolute;width:7px;height:7px;background:#f5f6f8;right:-7px;top:-6px}.tag{border:1px solid var(--line);border-radius:30px;padding:6px 11px;font-size:11px}
+.intro{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:28px 0 22px}h1{font-size:32px;letter-spacing:-1px;line-height:1.25;margin:0 0 10px;font-weight:650}.intro p{color:var(--muted);margin:0;font-size:13px;line-height:1.8}.intro small{font-size:12px;color:var(--muted);white-space:nowrap}
+.toolbar{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:14px}.tabs{display:flex;background:#e9edf2;padding:4px;border-radius:10px;gap:3px}.tab{border:0;background:transparent;color:#58677a;font-size:12px;padding:9px 16px;border-radius:7px}.tab[aria-pressed=true]{background:white;color:#214f96;box-shadow:0 1px 4px #20304015;font-weight:600}.tools{display:flex;align-items:center;gap:16px;font-size:12px;color:var(--muted)}.tools label{display:flex;gap:6px;align-items:center}.quiet{background:transparent;border:1px solid #cad3e0;border-radius:8px;padding:8px 12px;color:var(--ink);font-size:12px}
+.scene{min-height:610px;position:relative;overflow:hidden;border:1px solid #d9e0e9;border-radius:20px;background:radial-gradient(ellipse at 6% 6%,#d8c6ac 0,transparent 51%),radial-gradient(ellipse at 80% 105%,#64878d 0,transparent 66%),linear-gradient(135deg,#cbd6d5,#b8ccd9);box-shadow:0 12px 36px #20364d0c;isolation:isolate}
+.scene:before{content:"";position:absolute;inset:56% -10% -20%;background:#b4c2b948;border-radius:50%;transform:rotate(-13deg);z-index:-1}.scene-top{position:absolute;top:20px;left:25px;right:25px;display:flex;align-items:center;justify-content:space-between;z-index:3}.crumb{display:flex;align-items:center;gap:10px;font-size:12px;max-width:75%;color:#384d61;background:#f8fafae8;border:1px solid #ffffff9c;padding:9px 12px;border-radius:9px;box-shadow:0 2px 10px #20304006}.crumb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.crumb b{font-weight:500;color:#9ba8b3}.crumb button{border:0;background:transparent;padding:0 4px;color:#2b5fa6;font-size:18px;line-height:20px}.depth{font-size:11px;background:#253b5112;border:1px solid #364c5b14;border-radius:20px;padding:7px 10px;white-space:nowrap}
+.workspace{display:grid;grid-template-columns:minmax(500px,1fr) 340px;align-items:center;gap:22px;padding:62px 44px 38px 15px;min-height:610px}.wheel-wrap{position:relative;min-width:0;width:592px;max-width:100%;margin:auto}#wheel{width:100%;height:auto;overflow:visible;display:block;outline:none}#wheel [role=button]{cursor:pointer;outline:none}#wheel [role=button]:focus-visible .slice{stroke:#145dc8;stroke-width:3}.wheel-shadow{filter:drop-shadow(0 10px 12px #19384724)}.slice{fill:#f7f9fc;stroke:#e0e7ed;stroke-width:1;transition:fill 95ms,stroke 95ms}.ring[data-ring="0"] .slice{fill:#eef2f6}.ring[data-ring="1"] .slice{fill:#f2f5f9}.slice-label{font-size:12.5px;fill:#334154;text-anchor:middle;font-weight:500;pointer-events:none}.ancestor .slice{fill:#e4edf8!important;stroke:#c7d7ed}.ancestor .slice-label{fill:#3c5e86}.focus .slice{fill:#dceaff!important;stroke:#8ab3f0;stroke-width:1.4}.focus .slice-label{fill:#194779}.folder-art{transform-box:fill-box;transform-origin:50% 75%;transition:transform 160ms var(--curve);pointer-events:none}.focus .folder-art{transform:translateY(-1px) scale(1.1)}.focus-outline{pointer-events:none;fill:none;stroke:#3579e5;stroke-width:2;opacity:0;transition:opacity 90ms,transform 120ms var(--curve)}.focus .focus-outline{opacity:.85}.ring{transform-origin:296px 296px}.center-title{text-anchor:middle;fill:#536174;font-size:11px}.center-action{text-anchor:middle;fill:#245fb3;font-size:13px;font-weight:650}.center-circle{fill:#fafdff;stroke:#d7e3f2;stroke-width:1.3;transition:fill .12s}.center-button:hover .center-circle{fill:#e9f2ff}.legend{position:absolute;bottom:15px;left:0;right:0;text-align:center;font-size:11px;color:#3b5266;pointer-events:none}.legend kbd{border:1px solid #60778a42;padding:2px 5px;border-radius:4px;font-size:10px;margin:0 4px;background:#f7fafb7a}
+.info{align-self:center;position:relative;padding:23px;background:#fafcfff5;border:1px solid #ffffffbd;border-radius:17px;box-shadow:0 14px 34px #1f3e5120;min-height:375px}.eyebrow{font-size:10px;letter-spacing:.1em;color:#64778b;margin:0 0 13px;display:flex;align-items:center;gap:7px}.eyebrow i{width:6px;height:6px;background:#4581cc;border-radius:50%}.name{font-size:17px;line-height:1.6;letter-spacing:-.2px;margin:0 0 10px;font-weight:650;overflow-wrap:anywhere}.path{font-size:11px;color:#63758a;line-height:1.8;word-break:break-all;margin:0 0 17px}.separator{border:0;border-top:1px solid #e3e9f1;margin:17px 0}.source{font-size:11px;color:#607087;line-height:1.7;overflow-wrap:anywhere}.source-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}.source strong{color:#3b4e64;font-weight:500}.source details{margin-top:7px}.source summary{color:#356aae;cursor:pointer}.actions{display:grid;gap:8px;margin-top:18px}.primary{border:0;border-radius:8px;background:#2469d1;color:white;padding:11px 13px;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;box-shadow:0 2px 4px #266cde18}.primary:hover{background:#195dc5}.secondary{background:transparent;border:1px solid #cfdbea;border-radius:8px;color:#3a5c87;padding:9px 12px;font-size:12px}.note{font-size:10px;line-height:1.7;color:#64778b;margin:10px 0 0}.state-line{position:absolute;left:25px;bottom:18px;right:25px;display:flex;gap:8px;align-items:center;font-size:11px;color:#2a485c}.state-line .dot{height:6px;width:6px;border-radius:50%;background:#2b648a}.state-line span{line-height:1.5}
+.callouts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px}.callout{display:flex;align-items:start;gap:11px;padding:12px 1px}.number{font-size:10px;color:#4c7ab4;background:#e7eef8;border-radius:6px;line-height:25px;width:25px;text-align:center;flex:none}.callout h2{font-size:12px;font-weight:650;margin:0 0 6px}.callout p{font-size:11px;color:#657389;line-height:1.7;margin:0}footer{font-size:10px;color:#637389;margin-top:18px;line-height:1.8;display:flex;gap:20px;justify-content:space-between}footer a{color:#406c9b;text-decoration:none}
+.toast{position:absolute;left:50%;top:78px;transform:translateX(-50%);background:#173a58f2;color:#fff;padding:11px 18px;border-radius:9px;font-size:12px;z-index:6;max-width:90%;text-align:center;box-shadow:0 8px 28px #12344426}.toast[hidden]{display:none}.anchor{display:none;position:absolute;left:13px;top:15px;width:7px;height:7px;border:2px solid #255b99;background:white;border-radius:50%;box-shadow:0 0 0 6px #fff7}.scene.edge .anchor{display:block}.scene.edge .workspace{padding-left:0}.scene.edge .wheel-wrap{transform:translateX(-8px)}.scene.closed .workspace,.scene.closed .scene-top,.scene.closed .state-line{opacity:0;pointer-events:none}.reopen{display:none;position:absolute;inset:0;place-items:center}.scene.closed .reopen{display:grid}.reopen button{background:#f9fbfff0;color:#2b5384;border:1px solid white;box-shadow:0 8px 22px #1232;border-radius:10px;padding:13px 25px;font-size:13px}
+body.reduced *,body.reduced *:before{transition-duration:0ms!important;animation-duration:0ms!important}body.reduced .focus .folder-art{transform:none}
+.mode-picker{display:flex;align-items:center;gap:7px;color:#536174;font-size:12px}.mode-picker select{max-width:235px;border:1px solid #cfdae8;border-radius:8px;background:#fff;color:#2a527e;padding:8px 10px}.toolbar{flex-wrap:wrap}.tools{gap:12px}.slice{stroke:#ffffffcc;stroke-width:1}.focus .slice{stroke:#aac9f2;stroke-width:1}.focus-outline{stroke-width:1.4}.focus .focus-outline{opacity:.65}.ancestor .slice{stroke:#d4e0ef}.ring[data-ring="0"] .slice{fill:#edf2f8}.ring[data-ring="1"] .slice{fill:#f3f6fa}.gesture-guide{margin-top:18px;border-top:1px solid #e0e7f0;padding-top:15px;font-size:12px;line-height:1.8;color:#345b86}.gesture-guide strong{font-weight:600}.gesture-guide p{margin:0 0 7px}.gesture-guide kbd{font:inherit;font-size:11px;background:#e9f0fa;border:1px solid #cfdef1;border-radius:5px;padding:2px 7px;margin-right:5px}.destination{font-size:11px;color:#53677c;line-height:1.7;overflow-wrap:anywhere}.destination b{display:block;color:#294767;font-weight:600;margin-top:4px}.center-button[aria-disabled=true]{pointer-events:none;opacity:.55}.geometry-note{font-size:11px;color:#667e95}.legend kbd{border-radius:5px}.center-caption{font-size:10px;fill:#4b6787;text-anchor:middle}
+.dwell-panel{margin-top:13px;padding:12px 13px;background:#edf3fb;border:1px solid #d9e6f5;border-radius:11px}.dwell-panel[hidden]{display:none}.dwell-caption{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:#355879;margin-bottom:9px}.dwell-track{height:4px;background:#cedcee;border-radius:10px;overflow:hidden}.dwell-fill{height:100%;background:#447dca;transform:scaleX(0);transform-origin:left;border-radius:10px}.dwell-panel small{display:block;color:#5e748c;font-size:10px;line-height:1.7;margin-top:8px}.dwell-progress{fill:none;stroke:#387cd5;stroke-width:2.6;stroke-linecap:round;pointer-events:none;opacity:0}
+@media(max-width:1050px){.page{padding:20px}.workspace{grid-template-columns:minmax(340px,1fr) 310px;gap:8px;padding-right:22px}.info{padding:19px}h1{font-size:29px}.scene,.workspace{min-height:566px}.legend{font-size:10px}}
+@media(max-width:760px){.page{padding:17px}.intro{margin-top:23px}.intro small{display:none}.toolbar{align-items:start;flex-direction:column;gap:10px}.tools{width:100%;justify-content:space-between}.workspace{grid-template-columns:1fr;padding:75px 20px 65px}.wheel-wrap{width:min(100%,490px);margin:auto}.info{min-height:0;width:100%}.scene-top{left:16px;right:16px;gap:8px}.crumb{max-width:78%;gap:6px;font-size:10px}.depth{font-size:9px}.legend{bottom:10px}.callouts{grid-template-columns:1fr;gap:1px}.callout{padding:8px 0}.scene.edge .wheel-wrap{transform:none}.scene.edge .workspace{padding-left:20px}footer{display:block}.masthead .tag{font-size:9px}.tab{padding:8px 11px}}
+@media(prefers-reduced-motion:reduce){body:not(.motion-override) *,body:not(.motion-override) *:before{transition-duration:0ms!important;animation-duration:0ms!important}body:not(.motion-override) .focus .folder-art{transform:none}}
+</style>
+</head>
+<body data-initial-mode="dwell">
+<main class="page">
+  <header class="masthead"><div class="brand"><span class="brandmark" aria-hidden="true"></span>灵环<span style="font-size:12px;font-weight:400;color:#708096">/ 交互设计</span></div><span class="tag">圆角修订 · 02</span></header>
+  <section class="intro"><div><h1>先看清，再进入。</h1><p>完整的名称、从容的深层浏览，以及有连续感的轮盘响应。</p></div><small>基于当前 WPF 轮盘与 Pieoneer 视频参考</small></section>
+  <div class="toolbar"><div class="tabs" aria-label="体验场景"><button class="tab" data-scenario="long" aria-pressed="true">长名称辨识</button><button class="tab" data-scenario="deep" aria-pressed="false">深层导航</button><button class="tab" data-scenario="edge" aria-pressed="false">靠近屏幕边缘</button></div><div class="tools"><label class="mode-picker">交互<select id="navMode" aria-label="交互方式对比"><option value="middle">A · 中键进入</option><option value="dwell">B · 分段悬停</option></select></label><label><input type="checkbox" id="reduce"> 减少动态效果</label><button class="quiet" id="replay">重播展开</button></div></div>
+  <section class="scene" id="scene" aria-label="交互样稿，所有操作均为模拟">
+    <span class="anchor" aria-hidden="true"></span>
+    <div class="scene-top"><nav class="crumb" aria-label="当前位置"><button id="back" aria-label="返回上一级">‹</button><span id="breadcrumb">公司归档</span><b>/</b><span id="crumbTail">品牌运营 / 2026 年度</span></nav><span class="depth" id="depth">第 3 层 · 阅读中</span></div>
+    <div class="workspace"><div class="wheel-wrap"><svg id="wheel" viewBox="0 0 592 616" role="group" aria-label="目录轮盘，悬停看全名，点击目录浏览，中心确认移动"><defs><linearGradient id="folderFill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ffdb74"/><stop offset="1" stop-color="#efb841"/></linearGradient><symbol id="folder" viewBox="0 0 28 24"><path d="M2 6a2 2 0 0 1 2-2h7l3 3h10a2 2 0 0 1 2 2v11H2Z" fill="#e8ad33"/><path d="M2 10h24v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z" fill="url(#folderFill)"/><path d="M3 11h22" stroke="#fff6"/></symbol></defs><g id="wheelBody" class="wheel-shadow"><circle cx="296" cy="296" r="264" fill="#dce6ed" fill-opacity=".38" stroke="#ffffff80" stroke-width="1"/><g id="rings"></g><g class="center-button" id="centerMove" role="button" tabindex="0" aria-label="模拟确认移动"><circle class="center-circle" cx="296" cy="296" r="50"/><text class="center-title" x="296" y="279">1 个文件</text><text class="center-action" x="296" y="300">确认移动</text><text class="center-caption" id="centerTarget" x="296" y="319">2026年度</text></g></g></svg><div class="legend"><kbd>滚轮</kbd>切换同级 <kbd>右键</kbd>返回 <kbd>Esc</kbd>关闭</div></div>
+    <aside class="info" id="info" aria-label="完整名称与操作说明"><p class="eyebrow"><i></i>正在查看 · 完整名称</p><h2 class="name" id="name">2026年第三季度品牌推广执行方案_客户终审修订版</h2><p class="path" id="path">E:\公司归档\品牌运营\2026年度\2026年第三季度品牌推广执行方案_客户终审修订版</p><hr class="separator"><div class="source"><div class="source-label"><span>待移动</span><strong>1 个文件 · PPTX</strong></div><strong>华东区域_2026年第三季度品牌推广执行方案_客户终审修订版.pptx</strong><details><summary>查看源文件完整路径</summary>E:\工作桌面\客户交付\华东区域_2026年第三季度品牌推广执行方案_客户终审修订版.pptx</details></div><div class="gesture-guide"><p id="gestureText"><kbd>中键</kbd>进入目录 · <kbd>左键</kbd>直接移动</p><div class="destination">中心确认将移动到<b id="destinationName">E:\公司归档\品牌运营\2026年度</b></div></div><div class="dwell-panel" id="dwellPanel" hidden><div class="dwell-caption"><span id="dwellTitle">先阅读，再进入</span><span id="dwellPhase">未开始</span></div><div class="dwell-track"><div class="dwell-fill" id="dwellFill"></div></div><small>移开取消 · 移入全名卡暂停 · 换层后原地不连跳</small></div><p class="note" id="readingNote">中键进入目录。左键保持直接移动。</p></aside></div>
+    <div class="state-line" role="status" aria-live="polite"><i class="dot"></i><span id="status">外圈悬停只看全名，不会自动进入下一级。</span></div>
+    <div class="toast" id="toast" hidden role="status"></div><div class="reopen"><button id="reopen">重新打开轮盘</button></div>
+  </section>
+  <section class="callouts"><article class="callout"><span class="number">01</span><div><h2>阅读有固定位置</h2><p>全名与路径静止呈现。<br>移入名称卡可以继续阅读。</p></div></article><article class="callout"><span class="number">02</span><div><h2 id="modeHeading">用不同按键进入</h2><p id="modeCallout">中键进入，左键快移，右键返回。<br>没有需要精确瞄准的小箭头。</p></div></article><article class="callout"><span class="number">03</span><div><h2>每一个角都柔和</h2><p>内外四角连续相切，间隙更均匀。<br>焦点沿用相同圆角，轻微响应指针。</p></div></article></section>
+  <footer><span>独立交互样稿 · 不读取或移动文件 · 展示深层方案，浅层自动预览与系统边缘定位仍需 WPF 验证。</span><a href="../RADIAL_UX_OPTIMIZATION_2026-09-17.md">阅读完整优化方案 ↗</a></footer>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+const initialItems=[
+ {name:'2026年第三季度品牌推广执行方案_客户终审修订版',short:['推广方案','终审修订'],children:true},
+ {name:'2026年第三季度品牌推广执行方案_客户反馈待修改版',short:['推广方案','反馈待改'],children:true},
+ {name:'2026年09月_华东区_市场活动摄影及短视频原始素材',short:['活动原片','09月华东'],children:true},
+ {name:'2026年09月_品牌视觉规范与交付文件_已确认终稿',short:['视觉规范','确认终稿'],children:true},
+ {name:'2026年第三季度_历史版本及对外沟通记录',short:['历史版本','沟通记录'],children:true},
+ {name:'2026年第三季度_内部参考资料_无需继续分类',short:['内部参考','无需分类'],children:false}
+];
+const state={scenario:'long',depth:3,items:initialItems,offset:0,selected:0,history:[],base:['公司归档','品牌运营','2026年度'],busy:false,generation:0,closed:false,previewTimer:null,toastTimer:null,mode:document.body.dataset.initialMode||'middle',moves:0,moveTarget:null};
+const dwell={timer:0,frame:0,token:0,phase:'idle',slot:-1,locked:false,lockSlot:-1,cooldown:0,anchor:null};
+const motionMedia=matchMedia('(prefers-reduced-motion: reduce)');
+$('reduce').checked=motionMedia.matches;document.body.classList.toggle('reduced',motionMedia.matches);
+function reduced(){return $('reduce').checked;}
+function s(name,attrs={},text=''){const el=document.createElementNS(NS,name);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);if(text)el.textContent=text;return el;}
+function point(r,a){return [296+r*Math.cos(a*Math.PI/180),296+r*Math.sin(a*Math.PI/180)];}
+function wedge(inner,outer,start,end,requestedCorner=11){
+ // Circular fillets tangent to both the radial edge and concentric arc.
+ // Clamp the radius so all four corners remain disjoint in narrow sectors.
+ const span=(end-start)*Math.PI/180,halfSin=Math.sin(span/2);
+ const corner=Math.max(.1,Math.min(requestedCorner,(outer-inner)/2-1,
+   .9*inner*halfSin/(1-halfSin),.9*outer*halfSin/(1+halfSin)));
+ const outerAngle=Math.asin(corner/(outer-corner))*180/Math.PI;
+ const innerAngle=Math.asin(corner/(inner+corner))*180/Math.PI;
+ const outerEdge=Math.sqrt((outer-corner)**2-corner**2);
+ const innerEdge=Math.sqrt((inner+corner)**2-corner**2);
+ const outerStart=point(outer,start+outerAngle),outerEnd=point(outer,end-outerAngle);
+ const innerEnd=point(inner,end-innerAngle),innerStart=point(inner,start+innerAngle);
+ return `M ${outerStart} A ${outer} ${outer} 0 0 1 ${outerEnd}
+ A ${corner} ${corner} 0 0 1 ${point(outerEdge,end)} L ${point(innerEdge,end)}
+ A ${corner} ${corner} 0 0 1 ${innerEnd} A ${inner} ${inner} 0 0 0 ${innerStart}
+ A ${corner} ${corner} 0 0 1 ${point(innerEdge,start)} L ${point(outerEdge,start)}
+ A ${corner} ${corner} 0 0 1 ${outerStart} Z`;
+}
+function getItem(slot){return state.items[(state.offset+slot)%state.items.length];}
+function renderRing(index){
+ const old=$('ring'+index);if(old)old.remove();
+ const ring=s('g',{id:'ring'+index,class:'ring','data-ring':index});
+ const labels=index===0?[['公司归档'],['项目资料'],['个人文档'],['待整理']]:index===1?[['年度项目'],['品牌运营'],['合同资料'],['设计交付']]:null;
+ const inner=58+index*70,outer=118+index*70;
+ for(let slot=0;slot<4;slot++){
+  const active=index===2,angle=-90+slot*90,r=(inner+outer)/2,[x,y]=point(r,angle),name=active?getItem(slot).name:labels[slot].join('');
+  const g=s('g',{class:'item'+(!active&&slot===1?' ancestor':''),'data-slot':slot,'data-ring':index,role:'button',tabindex:'0','aria-label':active?name+(state.mode==='middle'?'，中键进入，左键模拟移动':'，停留进入，左键模拟移动'):name+'，上下文示意'});
+  const gapAngle=3/r*180/Math.PI;
+  g.append(s('path',{d:wedge(inner,outer,angle-45+gapAngle,angle+45-gapAngle),class:'slice'}));
+  g.append(s('path',{d:wedge(inner+1.2,outer-1.2,angle-45+gapAngle+.2,angle+45-gapAngle-.2,10),class:'focus-outline'}));
+  if(active)g.append(s('path',{d:`M ${point(outer-3,angle-32)} A ${outer-3} ${outer-3} 0 0 1 ${point(outer-3,angle+32)}`,class:'dwell-progress',pathLength:'1','stroke-dasharray':'1','stroke-dashoffset':'1'}));
+  const art=s('g',{class:'folder-art'});art.append(s('use',{href:'#folder',x:x-12,y:y-25,width:24,height:22}));g.append(art);
+  const lines=active?getItem(slot).short:labels[slot];
+  const label=s('text',{x,y:y+9,class:'slice-label'});lines.forEach((line,i)=>label.append(s('tspan',{x,dy:i?16:0},line)));g.append(label);
+  g.addEventListener('pointerenter',e=>{if(state.busy||state.closed)return;if(active){focusSlot(slot);if(dwell.locked&&slot!==dwell.lockSlot&&performance.now()>=dwell.cooldown)dwell.locked=false;armDwell(slot,e);}else g.classList.add('focus');});
+  g.addEventListener('pointermove',e=>{if(state.busy)return;if(active&&state.mode==='dwell'&&dwell.anchor&&Math.hypot(e.clientX-dwell.anchor.x,e.clientY-dwell.anchor.y)>10){armDwell(slot,e);}if(reduced())return;const p=$('wheel').createSVGPoint();p.x=e.clientX;p.y=e.clientY;const local=p.matrixTransform($('wheel').getScreenCTM().inverse());const dx=Math.max(-1.4,Math.min(1.4,(local.x-x)/35)),dy=Math.max(-1.4,Math.min(1.4,(local.y-y)/35));g.querySelector('.focus-outline').style.transform=`translate(${dx}px,${dy}px)`;});
+  g.addEventListener('pointerleave',()=>{g.querySelector('.focus-outline').style.transform='';if(active){clearTimeout(state.previewTimer);cancelDwell(dwell.locked?'locked':'idle');}else g.classList.remove('focus');});
+  g.addEventListener('focus',()=>{if(active&&!state.busy)focusSlot(slot);});
+  g.addEventListener('click',e=>{if(state.busy||state.closed||e.detail>1)return;if(active){focusSlot(slot,true);simulateMove(getItem(slot));}else notify('这里展示祖先上下文；请使用外圈体验深层浏览。');});
+  g.addEventListener('pointerdown',e=>{if(e.button===1)e.preventDefault();});
+  g.addEventListener('auxclick',e=>{if(e.button!==1)return;e.preventDefault();if(active&&state.mode==='middle'&&!state.busy&&e.detail<2){focusSlot(slot,true);enter();}});
+  g.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!e.repeat){e.preventDefault();if(active){focusSlot(slot,true);enter();}}if(active&&['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(e.key)){e.preventDefault();const n=(slot+(['ArrowRight','ArrowDown'].includes(e.key)?1:3))%4;ring.querySelector(`[data-slot="${n}"]`).focus();}});
+  g.addEventListener('wheel',e=>{e.preventDefault();if(active)rotate(e.deltaY>0?1:-1);else notify('滚轮只作用于所在圈；此样稿的祖先圈为固定上下文。');},{passive:false});
+  ring.append(g);
+ }
+ $('rings').append(ring);return ring;
+}
+function renderAll(){[0,1,2].forEach(renderRing);focusSlot(0,true);}
+function setStatus(message){$('status').textContent=message;}
+function updateInfo(){
+ const item=getItem(state.selected);$('name').textContent=item.name;$('path').textContent='E:\\'+state.base.join('\\')+'\\'+item.name;
+ $('breadcrumb').textContent=state.base[0];$('crumbTail').textContent=(state.base.length>4?'… / ':'')+state.base.slice(-2).join(' / ');
+ $('depth').textContent=`第 ${state.depth} 层 · ${state.busy?'切换中':'阅读中'}`;
+ $('centerMove').setAttribute('aria-disabled',String(state.busy));
+ $('readingNote').textContent=!item.children?'这是叶子目录，不会自动进入。左键可直接移动。':state.mode==='dwell'?'停稳 700 ms 留给阅读，再用 450 ms 显示进入进度。':'悬停不会进入；在整个扇区按中键进入。左键仍直接移动。';
+ updateDestination();
+}
+function setDestination(node=null){state.moveTarget=node?{name:node.name,short:node.short.at(-1),path:'E:\\'+state.base.join('\\')+'\\'+node.name}:{name:state.base.at(-1),short:state.base.at(-1),path:'E:\\'+state.base.join('\\')};}
+function updateDestination(){if(!state.moveTarget)setDestination();const target=state.moveTarget;$('centerTarget').textContent=target.short.length>7?target.short.slice(0,6)+'…':target.short;$('centerMove').setAttribute('aria-label','模拟确认移动到 '+target.path);$('destinationName').textContent=target.path;}
+function setDwellPhase(phase){dwell.phase=phase;$('dwellPhase').textContent=({idle:'移入外圈试试',reading:'阅读中',progress:'即将进入',paused:'阅读已暂停计时',locked:'已进入 · 停留不连跳',leaf:'没有下一级'})[phase]||phase;}
+function cancelDwell(phase='idle'){
+ clearTimeout(dwell.timer);cancelAnimationFrame(dwell.frame);dwell.token++;dwell.anchor=null;
+ $('dwellFill').style.transform='scaleX(0)';document.querySelectorAll('.dwell-progress').forEach(p=>{p.style.opacity='0';p.setAttribute('stroke-dashoffset','1');});setDwellPhase(phase);
+}
+function armDwell(slot,event=null,readingMs=700){
+ if(state.mode!=='dwell'||state.busy||state.closed)return;
+ cancelDwell();if(dwell.locked){setDwellPhase('locked');return;}
+ if(!getItem(slot).children){setDwellPhase('leaf');return;}
+ const token=dwell.token,generation=state.generation;dwell.slot=slot;dwell.anchor=event?{x:event.clientX,y:event.clientY}:null;setDwellPhase('reading');
+ dwell.timer=setTimeout(()=>{
+  if(token!==dwell.token||generation!==state.generation||state.busy||state.closed)return;
+  const began=performance.now();setDwellPhase('progress');const arc=document.querySelector(`#ring2 [data-slot="${slot}"] .dwell-progress`);
+  const tick=now=>{
+   if(token!==dwell.token||generation!==state.generation||state.busy||state.closed)return;
+   const progress=Math.min(1,(now-began)/450);$('dwellFill').style.transform=`scaleX(${progress})`;if(arc){arc.style.opacity='1';arc.setAttribute('stroke-dashoffset',String(1-progress));}
+   if(progress<1){dwell.frame=requestAnimationFrame(tick);return;}
+   focusSlot(slot,true);dwell.locked=true;dwell.lockSlot=slot;dwell.cooldown=performance.now()+650;enter();
+  };dwell.frame=requestAnimationFrame(tick);
+ },readingMs);
+}
+function focusSlot(slot,immediate=false){
+ if(state.busy)return;clearTimeout(state.previewTimer);
+ $('ring2')?.querySelectorAll('.item').forEach(g=>g.classList.toggle('focus',Number(g.dataset.slot)===slot));
+ const commit=()=>{state.selected=slot;updateInfo();};
+ if(immediate||reduced())commit();else state.previewTimer=setTimeout(()=>{commit();if(!reduced())$('name').animate([{opacity:.5},{opacity:1}],{duration:120});},180);
+}
+function animate(el,keyframes,options){if(reduced())return Promise.resolve();return el.animate(keyframes,options).finished.catch(()=>{});}
+async function swapContent(direction=1,scroll=false){
+ const generation=++state.generation;state.busy=true;clearTimeout(state.previewTimer);updateInfo();
+ const old=$('ring2');old.removeAttribute('id');old.style.pointerEvents='none';old.querySelectorAll('[tabindex]').forEach(e=>e.setAttribute('tabindex','-1'));old.setAttribute('aria-hidden','true');
+ const next=renderRing(2);next.style.pointerEvents='none';const time=reduced()?0:scroll?175:260;
+ const out=animate(old,[{opacity:1,transform:'translateY(0)'},{opacity:0,transform:`translateY(${-direction*6}px)`}],{duration:Math.max(90,time*.7),easing:'cubic-bezier(.4,0,1,1)',fill:'forwards'});
+ const incoming=animate(next,[{opacity:0,transform:`translateY(${direction*8}px)`},{opacity:1,transform:'translateY(0)'}],{duration:time,easing:'cubic-bezier(.22,1,.36,1)'});
+ await Promise.all([out,incoming]);old.remove();if(generation!==state.generation)return;
+ state.busy=false;next.style.pointerEvents='';focusSlot(state.selected,true);updateInfo();
+ if(dwell.locked)setDwellPhase('locked');
+ if(scroll&&state.mode==='dwell'){const hovered=next.querySelector('.item:hover');if(hovered){dwell.locked=false;armDwell(Number(hovered.dataset.slot),null,900);}}
+ setStatus(scroll?'同级目录已切换；悬停版需重新经过阅读与进度阶段。':state.mode==='dwell'?'已进入一层。原地停留不会继续深入，移到别项或移出再回来。':'层级已就位。可以先看清名称，再按中键进入。');
+}
+function enter(){
+ if(state.busy||state.closed)return;cancelDwell(dwell.locked?'locked':'idle');const item=getItem(state.selected);if(!item.children){setDestination(item);updateDestination();setStatus('这是叶子目录，已选为中心移动位置。');return;}
+ state.history.push({items:state.items,offset:state.offset,selected:state.selected,base:[...state.base],depth:state.depth,moveTarget:state.moveTarget});
+ state.base.push(item.name);state.depth++;state.offset=0;state.selected=0;
+ state.items=[{name:'01_客户已确认版本_2026年09月17日',short:['客户确认','09月17日'],children:true},{name:'02_合同附件与项目说明_签字盖章扫描件',short:['合同附件','盖章扫描'],children:true},{name:'03_发布素材_可对外使用的最终文件',short:['发布素材','对外终稿'],children:true},{name:'04_历史备份_请勿覆盖',short:['历史备份','请勿覆盖'],children:false}];
+ setDestination();swapContent(1);setStatus('浏览进入一层 · 没有执行移动。');
+}
+function back(){
+ cancelDwell();dwell.locked=true;dwell.lockSlot=state.selected;dwell.cooldown=performance.now()+650;clearTimeout(state.previewTimer);if(!state.history.length){notify('已经回到样稿起点。');return;}
+ if(state.busy){state.generation++;document.querySelectorAll('#rings .ring:not([id])').forEach(e=>e.remove());document.getAnimations().forEach(a=>a.cancel());state.busy=false;}
+ Object.assign(state,state.history.pop());swapContent(-1);
+}
+function rotate(direction){cancelDwell();if(state.busy||state.closed)return;state.offset=(state.offset+direction+state.items.length)%state.items.length;swapContent(direction,true);}
+function notify(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>$('toast').hidden=true,2600);}
+function simulateMove(node=null){if(state.busy||state.closed)return;cancelDwell('paused');clearTimeout(state.previewTimer);if(node)setDestination(node);state.moves++;updateDestination();notify('已模拟确认目标：'+state.moveTarget.name+'。未执行文件移动。');}
+function close(){cancelDwell();state.closed=true;state.generation++;state.busy=false;clearTimeout(state.previewTimer);document.getAnimations().forEach(a=>a.cancel());$('scene').classList.add('closed');$('reopen').focus();}
+async function replay(){
+ cancelDwell();dwell.locked=false;state.generation++;state.busy=false;state.closed=false;clearTimeout(state.previewTimer);clearTimeout(state.toastTimer);$('toast').hidden=true;document.getAnimations().forEach(a=>a.cancel());$('scene').classList.remove('closed');$('rings').replaceChildren();renderAll();
+ if(reduced())return;
+ animate($('wheelBody'),[{opacity:0,transform:'scale(.975)'},{opacity:1,transform:'scale(1)'}],{duration:240,easing:'cubic-bezier(.22,1,.36,1)'});
+ [0,1,2].forEach(i=>animate($('ring'+i),[{opacity:0},{opacity:1}],{duration:190,delay:i*18,fill:'backwards'}));
+}
+function scenario(name){
+ state.scenario=name;state.depth=name==='deep'?6:3;state.history=[];state.base=name==='deep'?['公司归档','品牌运营','2026年度','第三季度','客户终审','交付文件']:['公司归档','品牌运营','2026年度'];state.offset=0;state.selected=0;state.items=initialItems;state.moves=0;setDestination();
+ document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-pressed',String(t.dataset.scenario===name)));$('scene').classList.toggle('edge',name==='edge');
+ replay();syncMode();if(name==='edge')setStatus('边缘策略示意：菜单向内放置，圆心与完整名称均保持可见。');if(name==='deep')setStatus(state.mode==='middle'?'第 6 层：可以不限时阅读，中键才进入第 7 层。':'第 6 层：停稳后显示进入进度，移到名称卡可暂停。');
+}
+$('centerMove').addEventListener('click',e=>{if(e.detail<2)simulateMove();});$('centerMove').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!e.repeat){e.preventDefault();simulateMove();}});
+function syncMode(){
+ $('navMode').value=state.mode;$('dwellPanel').hidden=state.mode!=='dwell';
+ $('gestureText').innerHTML=state.mode==='middle'?'<kbd>中键</kbd>进入目录 · <kbd>左键</kbd>直接移动':'<kbd>停留</kbd>分段进入 · <kbd>左键</kbd>直接移动';
+ $('modeHeading').textContent=state.mode==='middle'?'用不同按键进入':'进入前留出停顿';
+ $('modeCallout').innerHTML=state.mode==='middle'?'中键进入，左键快移，右键返回。<br>没有需要精确瞄准的小箭头。':'先阅读 700 ms，再显示 450 ms 进度。<br>移开取消，换层后不原地连跳。';
+ $('wheel').setAttribute('aria-label',state.mode==='middle'?'目录轮盘，中键进入，左键模拟移动':'目录轮盘，分段悬停进入，左键模拟移动');
+ setStatus(state.mode==='middle'?'A 版：整个目录扇区都支持中键进入，悬停不会自动深入。':'B 版：先阅读，再显示进入进度。移入全名卡可暂停。');
+}
+$('navMode').addEventListener('change',()=>{state.mode=$('navMode').value;setDestination();replay();syncMode();});
+$('info').addEventListener('pointerenter',()=>{clearTimeout(state.previewTimer);cancelDwell('paused');});
+$('wheel').addEventListener('pointerleave',()=>{cancelDwell();if(!state.busy&&performance.now()>=dwell.cooldown)dwell.locked=false;});
+$('back').addEventListener('click',back);$('replay').addEventListener('click',replay);$('reopen').addEventListener('click',replay);$('scene').addEventListener('contextmenu',e=>{e.preventDefault();back();});
+$('scene').addEventListener('click',e=>{if(e.target===$('scene')||e.target.classList.contains('workspace'))close();});
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>scenario(t.dataset.scenario)));
+$('reduce').addEventListener('change',()=>{document.body.classList.toggle('reduced',reduced());document.body.classList.add('motion-override');document.getAnimations().forEach(a=>a.finish());});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Backspace'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();back();}});
+window.previewState=()=>({depth:state.depth,selected:state.selected,name:getItem(state.selected).name,busy:state.busy,closed:state.closed,history:state.history.length,scenario:state.scenario,mode:state.mode,moves:state.moves,destination:state.moveTarget?.path,dwellPhase:dwell.phase,dwellLocked:dwell.locked});
+replay();syncMode();
+</script>
+</body>
+</html>

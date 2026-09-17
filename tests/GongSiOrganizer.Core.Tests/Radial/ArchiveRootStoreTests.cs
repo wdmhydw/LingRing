@@ -7,6 +7,20 @@ namespace GongSiOrganizer.Core.Tests.Radial;
 public sealed class ArchiveRootStoreTests
 {
     [Fact]
+    public void ExistingCompletedGuide_ShowsBlueArcUpgradeOnceWithoutLosingRoot()
+    {
+        using var workspace = new TestWorkspace();
+        var path = workspace.FileAt("""{"Version":4,"ArchiveRoot":"shell:ThisPC","OnboardingCompleted":true}""", "settings.json");
+        var store = new ArchiveRootStore(path);
+        Assert.True(store.IsOnboardingCompleted());
+        Assert.True(store.NeedsInteractionGuide());
+        Assert.Equal(ArchiveScope.ThisPcRoot, store.Load());
+        Assert.True(store.MarkOnboardingCompleted(store.LoadProfile()));
+        Assert.False(new ArchiveRootStore(path).NeedsInteractionGuide());
+        Assert.True(store.Save(ArchiveScope.ThisPcRoot));
+        Assert.False(new ArchiveRootStore(path).NeedsInteractionGuide());
+    }
+    [Fact]
     public void SaveAndLoad_PersistsTheNormalizedRoot()
     {
         using var workspace = new TestWorkspace();

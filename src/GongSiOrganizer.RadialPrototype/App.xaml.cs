@@ -34,7 +34,11 @@ public partial class App : System.Windows.Application
     private async void OnStartup(object sender, StartupEventArgs e)
     {
         DispatcherUnhandledException += OnDispatcherUnhandledException;
-        _instanceMutex = new Mutex(true, InstanceMutexName, out var createdNew);
+        _options = PrototypeOptions.Parse(e.Args);
+        // Isolated visual probes may coexist with the installed application.
+        var mutexName = _options.IsDemoLaunch || _options.SelectionProbePath is not null
+            ? $"{InstanceMutexName}.Preview.{Environment.ProcessId}" : InstanceMutexName;
+        _instanceMutex = new Mutex(true, mutexName, out var createdNew);
         if (!createdNew)
         {
             System.Windows.MessageBox.Show(
@@ -46,12 +50,11 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _options = PrototypeOptions.Parse(e.Args);
         CaptureTrace("options parsed");
         var startupOnboardingShown = false;
         try
         {
-            if (!_options.RootWasSpecified)
+            if (!_options.RootWasSpecified && !_options.IsDemoLaunch)
             {
                 var storedProfile = _archiveRootStore.LoadProfile();
                 if (storedProfile is not null)
@@ -104,9 +107,14 @@ public partial class App : System.Windows.Application
             }
 
             _overlay = new RadialOverlayWindow();
+            // Automated captures must keep their scripted scene even when the
+            // desktop pointer happens to be over the newly opened wheel.
+            if (!string.IsNullOrWhiteSpace(_options.CapturePath))
+                _overlay.SetInteractionEnabled(false);
             _overlay.MoveRequested += OnMoveRequested;
             _overlay.DemoConfirmed += OnDemoConfirmed;
             _overlay.CreateFolderRequested += OnCreateFolderRequested;
+            _overlay.GuideRequested += ShowOnboarding;
             CaptureTrace("overlay created");
 
             _tray = new TrayIconService(
@@ -170,7 +178,7 @@ public partial class App : System.Windows.Application
                 return;
             }
 
-            if (!_options.DisableListener)
+            if (!_options.DisableListener && !_options.IsDemoLaunch)
             {
                 _mouseListener = new RawMouseInputListener();
                 _mouseListener.MiddleButtonDown += OnMiddleButtonDown;
@@ -180,7 +188,7 @@ public partial class App : System.Windows.Application
 
             if (!_options.IsDemoLaunch &&
                 !startupOnboardingShown &&
-                !_archiveRootStore.IsOnboardingCompleted())
+                _archiveRootStore.NeedsInteractionGuide())
                 ShowOnboarding();
 
             if (Process.GetProcessesByName("Listary").Length > 0)
@@ -200,12 +208,12 @@ public partial class App : System.Windows.Application
 
             if (_options.DemoInvalid)
             {
-                _overlay.ShowInvalid(NativeDisplay.GetPrimaryWorkAreaCenter(_options.DemoCorner));
+                _overlay.ShowInvalid(NativeDisplay.GetPrimaryWorkAreaPoint(_options.DemoCorner ? "top-left" : _options.DemoPosition));
             }
             else if (_options.Demo || _options.DemoCorner)
             {
                 CaptureTrace("demo opening");
-                ShowDemo(NativeDisplay.GetPrimaryWorkAreaCenter(_options.DemoCorner));
+                await ShowDemo(NativeDisplay.GetPrimaryWorkAreaPoint(_options.DemoCorner ? "top-left" : _options.DemoPosition));
                 CaptureTrace($"demo opened; visible={_overlay.IsVisible}");
             }
 
@@ -292,12 +300,12 @@ public partial class App : System.Windows.Application
         _ = Dispatcher.InvokeAsync(overlay.HideOverlay, DispatcherPriority.Input);
     }
 
-    private void ShowDemoAtCursor()
+    private async void ShowDemoAtCursor()
     {
         if (_folderCreationInProgress || _rootChangeInProgress || _onboardingOpen) return;
         try
         {
-            ShowDemo(NativeDisplay.GetCursor());
+            await ShowDemo(NativeDisplay.GetCursor());
         }
         catch (Exception exception)
         {
@@ -305,11 +313,11 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void ShowDemo(NativeScreenPoint point)
+    private async Task ShowDemo(NativeScreenPoint point)
     {
         var snapshot = _directoryCache?.CreateMenuSnapshot();
         if (snapshot is null || _overlay is null) return;
-        _overlay.ShowMenu(point, ["演示文件.pptx"], _usageStore.Apply(snapshot), true);
+        await _overlay.ShowDemoAsync(point, _usageStore.Apply(snapshot), _options?.StartPath);
     }
 
     private async void RefreshDirectory()
@@ -853,6 +861,7 @@ public partial class App : System.Windows.Application
             _overlay.MoveRequested -= OnMoveRequested;
             _overlay.DemoConfirmed -= OnDemoConfirmed;
             _overlay.CreateFolderRequested -= OnCreateFolderRequested;
+            _overlay.GuideRequested -= ShowOnboarding;
         }
         _overlay?.Close();
         _tray?.Dispose();

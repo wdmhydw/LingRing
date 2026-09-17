@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
+using GongSiOrganizer.RadialPrototype.Presentation;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using Colors = System.Windows.Media.Colors;
@@ -112,7 +113,7 @@ internal sealed class CompactToastService : IDisposable
                 Color = Colors.Black
             }
         };
-        var translate = new TranslateTransform(0, 7);
+        var translate = new TranslateTransform(0, 10);
         border.RenderTransform = translate;
 
         var window = new Window
@@ -134,15 +135,16 @@ internal sealed class CompactToastService : IDisposable
             var workArea = SystemParameters.WorkArea;
             window.Left = workArea.Right - window.ActualWidth - 14;
             window.Top = workArea.Bottom - window.ActualHeight - 14;
+            if (!UiMotion.Enabled) { window.Opacity = 1; translate.Y = 0; return; }
             window.BeginAnimation(
                 UIElement.OpacityProperty,
-                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(135))
+                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200))
                 {
                     EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut }
                 });
             translate.BeginAnimation(
                 TranslateTransform.YProperty,
-                new DoubleAnimation(7, 0, TimeSpan.FromMilliseconds(180))
+                new DoubleAnimation(10, 0, TimeSpan.FromMilliseconds(300))
                 {
                     EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
                 });
@@ -160,6 +162,7 @@ internal sealed class CompactToastService : IDisposable
         if (generation != _generation || _window is null) return;
         _closeTimer?.Stop();
         var window = _window;
+        if (!UiMotion.Enabled) { CloseCurrent(); return; }
         var animation = new DoubleAnimation(0, TimeSpan.FromMilliseconds(130))
         {
             EasingFunction = new SineEase { EasingMode = EasingMode.EaseIn }

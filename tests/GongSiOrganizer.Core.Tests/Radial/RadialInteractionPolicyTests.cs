@@ -76,7 +76,7 @@ public sealed class RadialInteractionPolicyTests
     [Fact]
     public void QuarterCircleMarkers_UseHoveredRingAndPointTowardTheArcEnds()
     {
-        var layout = RadialLayout.Create(new RadialPoint(12, 18), WorkArea);
+        var layout = RadialLayout.Create(new RadialPoint(12, 12), WorkArea);
 
         var markers = RadialInteractionPolicy.GetScrollMarkers(layout, 1);
         var ring = layout.Rings[1];
@@ -84,9 +84,9 @@ public sealed class RadialInteractionPolicyTests
 
         Assert.Equal(expectedRadius, markers.First.Radius, 6);
         Assert.Equal(expectedRadius, markers.Second.Radius, 6);
-        Assert.True(markers.First.Angle < layout.StartAngle);
+        Assert.True(markers.First.Angle < ring.StartAngle);
         Assert.Equal(-1, markers.First.Direction);
-        Assert.True(markers.Second.Angle > layout.StartAngle + layout.SweepAngle);
+        Assert.True(markers.Second.Angle > ring.StartAngle + ring.SweepAngle);
         Assert.Equal(1, markers.Second.Direction);
     }
 

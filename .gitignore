@@ -2,6 +2,7 @@ bin/
 obj/
 TestResults/
 artifacts/
+Releases/
 .vs/
 .idea/
 .design-references/

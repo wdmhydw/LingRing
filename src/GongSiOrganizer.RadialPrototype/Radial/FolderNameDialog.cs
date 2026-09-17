@@ -151,6 +151,7 @@ internal sealed class FolderNameDialog : Window
 
         Loaded += (_, _) =>
         {
+            GongSiOrganizer.RadialPrototype.Presentation.UiMotion.Reveal((FrameworkElement)Content, 12, 300);
             _nameBox.Focus();
             _nameBox.SelectAll();
         };

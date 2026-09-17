@@ -7,6 +7,7 @@ namespace GongSiOrganizer.RadialPrototype.Services;
 internal sealed class ArchiveRootStore
 {
     private const int CurrentVersion = 4;
+    private const int InteractionGuideRevision = 3;
     private readonly object _gate = new();
     private readonly string _storagePath;
 
@@ -51,6 +52,15 @@ internal sealed class ArchiveRootStore
         }
     }
 
+    public bool NeedsInteractionGuide()
+    {
+        lock (_gate)
+        {
+            var settings = ReadUnsafe();
+            return !settings.OnboardingCompleted || settings.OnboardingRevision < InteractionGuideRevision;
+        }
+    }
+
     public bool Save(string rootPath)
     {
         return Save(ArchiveScope.CreateNavigationProfile(rootPath));
@@ -89,7 +99,8 @@ internal sealed class ArchiveRootStore
             return WriteUnsafe(settings with
             {
                 Profile = normalizedProfile,
-                OnboardingCompleted = true
+                OnboardingCompleted = true,
+                OnboardingRevision = InteractionGuideRevision
             });
         }
     }
@@ -131,7 +142,8 @@ internal sealed class ArchiveRootStore
                     NormalizeProfileOrNull(
                         document.ArchiveRoot,
                         document.StartPath),
-                    document.OnboardingCompleted);
+                    document.OnboardingCompleted,
+                    document.OnboardingRevision);
         }
         catch (Exception exception) when (IsStorageException(exception))
         {
@@ -153,7 +165,8 @@ internal sealed class ArchiveRootStore
                         CurrentVersion,
                         settings.Profile?.RootPath,
                         settings.Profile?.StartPath,
-                        settings.OnboardingCompleted),
+                        settings.OnboardingCompleted,
+                        settings.OnboardingRevision),
                     new JsonSerializerOptions { WriteIndented = true }));
             File.Move(temporaryPath, _storagePath, true);
             return true;
@@ -201,7 +214,8 @@ internal sealed class ArchiveRootStore
         int Version,
         string? ArchiveRoot,
         string? StartPath,
-        bool OnboardingCompleted);
+        bool OnboardingCompleted,
+        int OnboardingRevision = 0);
 
     private sealed record LegacySettingsDocument(int Version, string? ArchiveRoot);
 
@@ -212,7 +226,8 @@ internal sealed class ArchiveRootStore
 
     private sealed record StoredSettings(
         ArchiveNavigationProfile? Profile,
-        bool OnboardingCompleted)
+        bool OnboardingCompleted,
+        int OnboardingRevision = 0)
     {
         public static StoredSettings Empty { get; } = new(null, false);
     }

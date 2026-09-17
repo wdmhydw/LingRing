@@ -421,15 +421,16 @@ internal sealed class TrayMenuWindow : Window
             visual.Thumb.RenderTransform = transform;
         }
 
-        if (!animate)
+        if (!animate || !UiMotion.Enabled)
         {
+            transform.BeginAnimation(TranslateTransform.XProperty, null);
             transform.X = target;
             return;
         }
 
         transform.BeginAnimation(
             TranslateTransform.XProperty,
-            new DoubleAnimation(target, TimeSpan.FromMilliseconds(145))
+            new DoubleAnimation(target, TimeSpan.FromMilliseconds(180))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             });
@@ -444,19 +445,20 @@ internal sealed class TrayMenuWindow : Window
     private void PlayOpenAnimation()
     {
         BeginAnimation(OpacityProperty, null);
+        if (!UiMotion.Enabled) { _surface.RenderTransform = Transform.Identity; Opacity = 1; return; }
         var translate = new TranslateTransform(0, 0);
         _surface.RenderTransform = translate;
 
         BeginAnimation(
             OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(125))
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200))
             {
                 EasingFunction = new SineEase { EasingMode = EasingMode.EaseOut },
                 FillBehavior = FillBehavior.Stop
             });
         translate.BeginAnimation(
             TranslateTransform.YProperty,
-            new DoubleAnimation(6, 0, TimeSpan.FromMilliseconds(175))
+            new DoubleAnimation(10, 0, TimeSpan.FromMilliseconds(300))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
                 FillBehavior = FillBehavior.Stop

@@ -104,15 +104,31 @@ internal static class NativeDisplay
     }
 
     public static NativeScreenPoint GetPrimaryWorkAreaCenter(bool nearCorner = false)
+        => GetPrimaryWorkAreaPoint(nearCorner ? "top-left" : "center");
+
+    public static NativeScreenPoint GetPrimaryWorkAreaPoint(string position)
     {
         var monitor = MonitorFromPoint(new NativePoint(0, 0), MonitorDefaultToNearest);
         var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
         if (!GetMonitorInfo(monitor, ref info)) return new NativeScreenPoint(600, 420);
-        if (nearCorner)
-            return new NativeScreenPoint(info.Work.Left + 150, info.Work.Top + 150);
-        return new NativeScreenPoint(
-            (info.Work.Left + info.Work.Right) / 2,
-            (info.Work.Top + info.Work.Bottom) / 2);
+        var cx = (info.Work.Left + info.Work.Right) / 2;
+        var cy = (info.Work.Top + info.Work.Bottom) / 2;
+        var scale = GetScale(monitor);
+        return position switch
+        {
+            "left" => new(info.Work.Left + 75, cy),
+            "right" => new(info.Work.Right - 75, cy),
+            "top" => new(cx, info.Work.Top + 75),
+            "bottom" => new(cx, info.Work.Bottom - 75),
+            "top-left" => new(info.Work.Left + 150, info.Work.Top + 150),
+            "top-right" => new(info.Work.Right - 150, info.Work.Top + 150),
+            "bottom-left" => new(info.Work.Left + 150, info.Work.Bottom - 150),
+            "bottom-right" => new(info.Work.Right - 150, info.Work.Bottom - 150),
+            "bottom-left-tight" => new(info.Work.Left + (int)Math.Round(50 * scale),
+                info.Work.Bottom - (int)Math.Round(80 * scale)),
+            "left-inset" => new(info.Work.Left + (int)Math.Round(200 * scale), cy),
+            _ => new(cx, cy)
+        };
     }
 
     public static void PositionWindow(Window window, OverlayPlacement placement)

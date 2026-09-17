@@ -1,3 +1,7 @@
+> 2026-09-17 发布补充：用户明确授权上传 GitHub 与私人 Forgejo 仓库，要求更新 README 与截图脱敏，并确认无需激活授权。下文历史限制不覆盖此次授权；当前进度见 docs/PROJECT_STATE.md。
+
+> 2026-09-17 更新：用户已批准蓝弧方案并要求制作可试用成品。下文是 0.5.5 的历史审查交接，其中“只读、不改源码、不打包”不再代表当前授权。当前状态见 [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md)，验证与构建证据见 [docs/ACCEPTANCE_LOG.md](docs/ACCEPTANCE_LOG.md)。旧运行实例与用户数据仍受保护，未自动替换。
+
 # PROJECT_HANDOFF — 文件快速归档 v0.5.5 优化审查
 
 ## 0. Snapshot / 快照

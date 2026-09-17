@@ -76,6 +76,7 @@ internal sealed class ArchiveRootChoiceWindow : Window
             Child = panel
         };
 
+        Loaded += (_, _) => UiMotion.Reveal((FrameworkElement)Content, 14, 320);
         PreviewKeyDown += (_, args) =>
         {
             if (args.Key != Key.Escape) return;

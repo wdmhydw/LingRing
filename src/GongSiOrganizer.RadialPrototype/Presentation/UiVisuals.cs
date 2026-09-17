@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Animation;
 using Button = System.Windows.Controls.Button;
 using Binding = System.Windows.Data.Binding;
 using Border = System.Windows.Controls.Border;
@@ -66,6 +67,22 @@ internal static class UiVisuals
             Cursor = System.Windows.Input.Cursors.Hand
         };
         button.Template = CreateButtonTemplate(primary);
+        var scale = new ScaleTransform(1, 1);
+        button.RenderTransformOrigin = new System.Windows.Point(.5, .5);
+        button.RenderTransform = scale;
+        void Animate(double target)
+        {
+            if (!UiMotion.Enabled) return;
+            var animation = new DoubleAnimation(target, TimeSpan.FromMilliseconds(180))
+            { EasingFunction = UiMotion.EaseOut() };
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, animation);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
+        }
+        button.MouseEnter += (_, _) => Animate(1.025);
+        button.MouseLeave += (_, _) => Animate(1);
+        button.PreviewMouseLeftButtonDown += (_, _) => Animate(.965);
+        button.PreviewMouseLeftButtonUp += (_, _) => Animate(button.IsMouseOver ? 1.025 : 1);
+        button.LostMouseCapture += (_, _) => Animate(button.IsMouseOver ? 1.025 : 1);
         return button;
     }
 

@@ -1,0 +1,739 @@
+{
+  "date": "2026-09-17T06:12:36.943Z",
+  "checks": [
+    {
+      "label": "automatic guide is visible without changing directory or destination",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": true,
+        "curved": false
+      }
+    },
+    {
+      "label": "guide pointer actually travels with a free-running clock",
+      "ok": true,
+      "actual": {
+        "guide1": "translate(301 89)",
+        "guide2": "translate(242.34712038526806 77.44621221215152)"
+      }
+    },
+    {
+      "label": "real pointer input dismisses guide",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "ready",
+        "gateLocked": false,
+        "bodySlot": 0,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "ordinary folder hover never enters or moves",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "ready",
+        "gateLocked": false,
+        "bodySlot": 0,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "blue arc visibly breathes yet remains visible",
+      "ok": true,
+      "actual": [
+        0.85156,
+        0.744374,
+        0.686638,
+        0.687491,
+        0.74764,
+        0.855238,
+        0.953866
+      ]
+    },
+    {
+      "label": "thin arc has a 20-unit forgiving hit band",
+      "ok": true,
+      "actual": [
+        {
+          "r": 248,
+          "angle": -126,
+          "hit": true
+        },
+        {
+          "r": 248,
+          "angle": -116,
+          "hit": true
+        },
+        {
+          "r": 248,
+          "angle": -106,
+          "hit": true
+        },
+        {
+          "r": 252,
+          "angle": -126,
+          "hit": true
+        },
+        {
+          "r": 252,
+          "angle": -116,
+          "hit": true
+        },
+        {
+          "r": 252,
+          "angle": -106,
+          "hit": true
+        },
+        {
+          "r": 256,
+          "angle": -126,
+          "hit": true
+        },
+        {
+          "r": 256,
+          "angle": -116,
+          "hit": true
+        },
+        {
+          "r": 256,
+          "angle": -106,
+          "hit": true
+        },
+        {
+          "r": 260,
+          "angle": -126,
+          "hit": true
+        },
+        {
+          "r": 260,
+          "angle": -116,
+          "hit": true
+        },
+        {
+          "r": 260,
+          "angle": -106,
+          "hit": true
+        },
+        {
+          "r": 264,
+          "angle": -126,
+          "hit": true
+        },
+        {
+          "r": 264,
+          "angle": -116,
+          "hit": true
+        },
+        {
+          "r": 264,
+          "angle": -106,
+          "hit": true
+        }
+      ]
+    },
+    {
+      "label": "approaching the arc from outside cannot enter",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "clicking the entry arc cannot move files",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "a brief arc crossing cancels instead of entering",
+      "ok": true,
+      "actual": {
+        "st": {
+          "depth": 3,
+          "selected": 0,
+          "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+          "busy": false,
+          "closed": false,
+          "history": 0,
+          "scenario": "long",
+          "moves": 0,
+          "destination": "E:\\公司归档\\品牌运营\\2026年度",
+          "gatePhase": "ready",
+          "gateLocked": false,
+          "bodySlot": 0,
+          "guidePlaying": false,
+          "curved": false
+        },
+        "events": [
+          {
+            "at": 6997.5,
+            "x": 484.5,
+            "y": 367.390625,
+            "depth": 3,
+            "phase": "reading"
+          },
+          {
+            "at": 7238.300000000745,
+            "x": 372.2769775390625,
+            "y": 362.2993469238281,
+            "depth": 3,
+            "phase": "ready"
+          },
+          {
+            "at": 7252.599999997765,
+            "x": 484.5,
+            "y": 367.390625,
+            "depth": 3,
+            "phase": "entering"
+          }
+        ]
+      }
+    },
+    {
+      "label": "body-to-arc gesture enters exactly one level without a click",
+      "ok": true,
+      "actual": {
+        "depth": 4,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 1,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户终审修订版",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "stationary pointer cannot cascade through new directories",
+      "ok": true,
+      "actual": {
+        "depth": 4,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 1,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户终审修订版",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "small movement on the arc does not unlock reentry",
+      "ok": true,
+      "actual": {
+        "depth": 4,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 1,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户终审修订版",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "returning to the new body then arc enters the next level",
+      "ok": true,
+      "actual": {
+        "depth": 5,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 2,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户终审修订版\\01_客户已确认版本_2026年09月17日",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "back restores the previous directory",
+      "ok": true,
+      "actual": {
+        "depth": 4,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 1,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户终审修订版",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "full-name preview changes but center move destination stays fixed",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 1,
+        "name": "2026年第三季度品牌推广执行方案_客户反馈待修改版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "ready",
+        "gateLocked": false,
+        "bodySlot": 1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "middle button no longer expands",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 1,
+        "name": "2026年第三季度品牌推广执行方案_客户反馈待修改版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "left click on body retains explicit move simulation",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 1,
+        "name": "2026年第三季度品牌推广执行方案_客户反馈待修改版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 1,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户反馈待修改版",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "pressing the arc while entry is pending cancels safely",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "Escape invalidates pending navigation",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": true,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "moving to name card cancels pending entry",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户终审修订版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "reading",
+        "gateLocked": false,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "changing sectors invalidates the previous arc timer",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 1,
+        "name": "2026年第三季度品牌推广执行方案_客户反馈待修改版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "ready",
+        "gateLocked": false,
+        "bodySlot": 1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "wheel cancels arc entry and locks new content",
+      "ok": true,
+      "actual": {
+        "depth": 3,
+        "selected": 0,
+        "name": "2026年第三季度品牌推广执行方案_客户反馈待修改版",
+        "busy": false,
+        "closed": false,
+        "history": 0,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "leaf folders have no entry arc and never expand",
+      "ok": true,
+      "actual": {
+        "leaf": {
+          "name": "2026年第三季度_内部参考资料_无需继续分类",
+          "arcs": 0
+        },
+        "st": {
+          "depth": 3,
+          "selected": 3,
+          "name": "2026年第三季度_内部参考资料_无需继续分类",
+          "busy": false,
+          "closed": false,
+          "history": 0,
+          "scenario": "long",
+          "moves": 0,
+          "destination": "E:\\公司归档\\品牌运营\\2026年度",
+          "gatePhase": "locked",
+          "gateLocked": true,
+          "bodySlot": -1,
+          "guidePlaying": false,
+          "curved": false
+        }
+      }
+    },
+    {
+      "label": "same gesture works beyond the third level",
+      "ok": true,
+      "actual": {
+        "depth": 7,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 1,
+        "scenario": "deep",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\第三季度\\客户终审\\交付文件\\2026年第三季度品牌推广执行方案_客户终审修订版",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "keyboard alternative enters without moving",
+      "ok": true,
+      "actual": {
+        "depth": 4,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 1,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户反馈待修改版",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "reduced motion leaves a static visible arc and no running animation",
+      "ok": true,
+      "actual": {
+        "animations": 0,
+        "visible": 1
+      }
+    },
+    {
+      "label": "reduced-motion navigation still enters once",
+      "ok": true,
+      "actual": {
+        "depth": 4,
+        "selected": 0,
+        "name": "01_客户已确认版本_2026年09月17日",
+        "busy": false,
+        "closed": false,
+        "history": 1,
+        "scenario": "long",
+        "moves": 0,
+        "destination": "E:\\公司归档\\品牌运营\\2026年度\\2026年第三季度品牌推广执行方案_客户终审修订版",
+        "gatePhase": "locked",
+        "gateLocked": true,
+        "bodySlot": -1,
+        "guidePlaying": false,
+        "curved": false
+      }
+    },
+    {
+      "label": "rounded corners remain real tangent fillets at narrow angles",
+      "ok": true,
+      "actual": [
+        {
+          "inner": 58,
+          "span": 22.5,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 58,
+          "span": 45,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 58,
+          "span": 90,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 128,
+          "span": 22.5,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 128,
+          "span": 45,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 128,
+          "span": 90,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 198,
+          "span": 22.5,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 198,
+          "span": 45,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        },
+        {
+          "inner": 198,
+          "span": 90,
+          "finite": true,
+          "rounded": true,
+          "body": true
+        }
+      ]
+    },
+    {
+      "label": "horizontal labels fit within all four sectors",
+      "ok": true,
+      "actual": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "label": "curved experiment measures and truncates long names to fit",
+      "ok": true,
+      "actual": [
+        {
+          "full": "2026年第三季度品牌推广执行方案_客户终审修订版",
+          "display": "2026年第三季度品牌推广执行方案_客户终审修订版",
+          "length": 276.78125,
+          "available": 293.21531433504737
+        },
+        {
+          "full": "2026年第三季度品牌推广执行方案_客户反馈待修改版",
+          "display": "2026年第三季度品牌推…行方案_客户反馈待修改版",
+          "length": 274.546875,
+          "available": 293.21531433504737
+        },
+        {
+          "full": "2026年09月_华东区_市场活动摄影及短视频原始素材",
+          "display": "2026年09月_华东区_…场活动摄影及短视频原始素材",
+          "length": 281.3125,
+          "available": 293.21531433504737
+        },
+        {
+          "full": "2026年09月_品牌视觉规范与交付文件_已确认终稿",
+          "display": "2026年09月_品牌视觉规范与交付文件_已确认终稿",
+          "length": 271.34375,
+          "available": 293.21531433504737
+        }
+      ]
+    },
+    {
+      "label": "compact layout has no horizontal overflow",
+      "ok": true,
+      "actual": {
+        "width": 680,
+        "scroll": 665
+      }
+    },
+    {
+      "label": "edge placement example keeps complete wheel inside scene",
+      "ok": true,
+      "actual": {
+        "left": 129,
+        "right": 551,
+        "top": 95,
+        "bottom": 95
+      }
+    },
+    {
+      "label": "no browser runtime errors",
+      "ok": true,
+      "actual": []
+    }
+  ],
+  "errors": []
+}

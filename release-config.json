@@ -1,0 +1,24 @@
+{
+  "product": "LingRing",
+  "version_source": "src/GongSiOrganizer.RadialPrototype/GongSiOrganizer.RadialPrototype.csproj",
+  "source": {
+    "public_remote": "origin",
+    "public_repository": "wdmhydw/LingRing",
+    "private_backup_remote": "nas",
+    "private_backup_visibility": "private",
+    "default_branch": "main"
+  },
+  "platforms": {
+    "windows-x64": "ready",
+    "macos-arm64": "adaptation_required"
+  },
+  "signing": "UNSIGNED",
+  "licensing": { "enabled": false },
+  "updater": { "enabled": false },
+  "public_assets": [
+    "LingRing-{version}-windows-x64-setup.exe",
+    "LingRing-{version}-windows-x64-portable.zip",
+    "SHA256SUMS.txt",
+    "release-manifest.json"
+  ]
+}
