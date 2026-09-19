@@ -6,16 +6,13 @@
 
 <p align="center">在桌面或文件资源管理器中，用鼠标中键呼出同心圆目录轮盘，把文件和文件夹快速移动到归档目录。</p>
 
-
 ## 操作演示
 
 <p align="center">
-  <img src="docs/images/lingring-demo.gif" width="480" alt="灵环·文件快速整理操作演示">
+  <img src="docs/images/lingring-demo.gif" width="720" alt="灵环·文件快速整理操作演示">
 </p>
 
-<p align="center">
-  鼠标中键呼出灵环，选择目标目录，一步完成文件移动。
-</p>
+<p align="center">鼠标中键呼出灵环，选择目标目录，一步完成文件移动。</p>
 
 ## 下载
 
