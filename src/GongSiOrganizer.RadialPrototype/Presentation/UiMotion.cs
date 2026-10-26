@@ -13,14 +13,16 @@ internal static class UiMotion
     public const int Content = 360;
     public const int Wheel = 240;
     public const int Exit = 130;
-    public const int RingSlotDuration = 500;
-    public const int RingSlotStagger = 20;
+    public const int RingSlotDuration = 250;
+    public const int RingSlotStagger = 10;
     public const int RingOpen = RingSlotDuration + 3 * RingSlotStagger;
 
     public static double RingEase(double progress)
     {
         var t = Math.Clamp(progress, 0, 1);
-        return t * t * (3 - 2 * t);
+        // Respond immediately, then decelerate into place. A slow ease-in on
+        // every directory level makes repeated navigation feel unresponsive.
+        return 1 - Math.Pow(1 - t, 3);
     }
 
     // Small overshoot for the painted surface; labels and hit geometry stay put on hover.

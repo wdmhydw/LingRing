@@ -16,14 +16,20 @@
 
 ## 下载
 
-当前版本：**v0.6.4**，适用于 Windows 10 / Windows 11 x64，无需另装 .NET Runtime，也无需激活码。
+当前版本：**v0.6.5**，适用于 Windows 10 / Windows 11 x64，无需另装 .NET Runtime，也无需激活码。
 
 | 下载方式 | GitHub |
 | --- | --- |
-| 安装版 | [下载安装程序](https://github.com/wdmhydw/LingRing/releases/download/v0.6.4/LingRing-0.6.4-windows-x64-setup.exe) |
-| 便携版 | [下载便携 ZIP](https://github.com/wdmhydw/LingRing/releases/download/v0.6.4/LingRing-0.6.4-windows-x64-portable.zip) |
+| 安装版 | [下载安装程序](https://github.com/wdmhydw/LingRing/releases/download/v0.6.5/LingRing-0.6.5-windows-x64-setup.exe) |
+| 便携版 | [下载便携 ZIP](https://github.com/wdmhydw/LingRing/releases/download/v0.6.5/LingRing-0.6.5-windows-x64-portable.zip) |
 
-升级前先从托盘退出旧版，原有默认起点与常用排序会保留。本版未做代码签名；文件校验值随 Release 提供。详见 [0.6.4 更新说明](docs/release-v0.6.4.md)。
+升级前先从托盘退出旧版，原有默认起点与常用排序会保留。本版未做代码签名；文件校验值随 Release 提供。详见 [0.6.5 更新说明](docs/release-v0.6.5.md)。
+
+## 0.6.5 更新
+
+- **展开恢复利落**：各级菜单从 0.56 秒统一缩短为 0.28 秒，迅速起步、轻缓停稳，修正 0.6.4 的慢动作感。
+- **方向和节奏保持一致**：首次打开与后续各级继续由圆心向外展开，背景和文字同步，已有父级保持稳定。
+- 保留原位置移动反馈、蓝色进度、黄色部分完成、快速滚轮和边角适配。
 
 ## 0.6.4 更新
 
@@ -144,6 +150,7 @@ dotnet test tests\GongSiOrganizer.Core.Tests\GongSiOrganizer.Core.Tests.csproj -
 - [架构与安全说明](docs/架构与安全说明.md)
 - [v0.6.3 更新说明](docs/release-v0.6.3.md)
 - [v0.6.4 更新说明](docs/release-v0.6.4.md)
+- [v0.6.5 更新说明](docs/release-v0.6.5.md)
 - [v0.6.4 构建与发行验收](docs/RELEASE_VERIFICATION_0.6.4.md)
 - [v0.6.3 构建与发行验收](docs/RELEASE_VERIFICATION_0.6.3.md)
 - [公开截图脱敏说明](docs/SCREENSHOT_PRIVACY.md)

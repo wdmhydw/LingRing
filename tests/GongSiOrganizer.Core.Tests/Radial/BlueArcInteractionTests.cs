@@ -244,13 +244,14 @@ public sealed class BlueArcInteractionTests
     });
 
     [Fact]
-    public void FirstAndDeeperMenusAdvanceAtTheSamePace() => OnSta(() =>
+    public void FirstAndDeeperMenusAdvanceAtTheSamePaceAndSettlePromptly() => OnSta(() =>
     {
         if (!SystemParameters.ClientAreaAnimation) return;
         using var first = new MenuFixture();
         using var deeper = new MenuFixture();
         var previous = Enumerable.Range(0, 3).Select(deeper.Session.GetRingView).ToArray();
         Assert.True(deeper.Session.Hover(2, 0));
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
         first.Control.PlayOpen();
         typeof(RadialMenuControl).GetMethod("StartRingTransition",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
@@ -263,7 +264,10 @@ public sealed class BlueArcInteractionTests
         var deeperProgress = Progress(deeper.Control, "RingTransitionProgress");
         Assert.InRange(firstProgress, .3, .75);
         Assert.InRange(Math.Abs(firstProgress - deeperProgress), 0, .045);
-        Pump(UiMotion.RingOpen);
+        // A shared clock alone still passed when every interaction took over
+        // half a second. Keep a wall-clock budget independent of motion tokens.
+        Pump(Math.Max(1, 350 - (int)elapsed.ElapsedMilliseconds));
+        Assert.Equal(1, Progress(first.Control, "OpenProgress"));
         Assert.False(deeper.Control.IsTransitioning);
     });
 
