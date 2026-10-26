@@ -35,6 +35,7 @@ public partial class App : System.Windows.Application
     {
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         _options = PrototypeOptions.Parse(e.Args);
+        UiMotion.ReduceForPreview = _options.IsDemoLaunch && _options.DemoReducedMotion;
         // Isolated visual probes may coexist with the installed application.
         var mutexName = _options.IsDemoLaunch || _options.SelectionProbePath is not null
             ? $"{InstanceMutexName}.Preview.{Environment.ProcessId}" : InstanceMutexName;
@@ -210,7 +211,7 @@ public partial class App : System.Windows.Application
             {
                 _overlay.ShowInvalid(NativeDisplay.GetPrimaryWorkAreaPoint(_options.DemoCorner ? "top-left" : _options.DemoPosition));
             }
-            else if (_options.Demo || _options.DemoCorner)
+            else if (_options.Demo || _options.DemoCorner || _options.DemoFeedback is not null)
             {
                 CaptureTrace("demo opening");
                 await ShowDemo(NativeDisplay.GetPrimaryWorkAreaPoint(_options.DemoCorner ? "top-left" : _options.DemoPosition));
@@ -219,6 +220,30 @@ public partial class App : System.Windows.Application
 
             if (_options.DemoHoverRing >= 0 && _overlay.IsVisible)
                 _overlay.HoverDemo(_options.DemoHoverRing);
+
+            if (_options.DemoFeedback is { } feedbackMode && _overlay.IsVisible)
+            {
+                await Task.Delay(460);
+                var feedback = _overlay.StartMoveFeedback(demo: true);
+                if (feedbackMode != "busy")
+                {
+                    var outcome = feedbackMode switch
+                    {
+                        "partial" => MoveFeedbackOutcome.Partial,
+                        "failure" => MoveFeedbackOutcome.Failure,
+                        _ => MoveFeedbackOutcome.Success
+                    };
+                    feedback?.Complete(outcome, outcome == MoveFeedbackOutcome.Success ? 3 : outcome == MoveFeedbackOutcome.Partial ? 2 : 0, 3);
+                }
+                if (!string.IsNullOrWhiteSpace(_options.CapturePath))
+                {
+                    await Task.Delay(_options.CaptureDelayMilliseconds);
+                    await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                    feedback?.SaveSnapshot(_options.CapturePath);
+                    Shutdown();
+                }
+                return;
+            }
 
             if ((_options.DemoScroll || _options.DemoScrollTwice) && _overlay.IsVisible)
             {
@@ -356,12 +381,14 @@ public partial class App : System.Windows.Application
         }
 
         _moveInProgress = true;
+        MoveFeedbackWindow? feedback = null;
         var itemCount = sourceFiles.Count;
         var sourceLabel = itemCount == 1
             ? Path.GetFileName(sourceFiles[0])
             : $"已选择 {itemCount} 项";
         try
         {
+            feedback = _overlay?.StartMoveFeedback();
             _tray?.SetBusyStatus($"正在移动 {itemCount} 项…");
 
             DirectMoveBatchResult result;
@@ -374,12 +401,17 @@ public partial class App : System.Windows.Application
             }
             catch (Exception exception)
             {
+                feedback?.Complete(MoveFeedbackOutcome.Failure, 0, itemCount);
                 _tray?.ShowWarning(
                     "移动失败",
                     $"{sourceLabel}\n{exception.Message}",
                     6000);
                 return;
             }
+
+            feedback?.Complete(result.Failures.Count == 0 ? MoveFeedbackOutcome.Success
+                : result.Moved.Count > 0 ? MoveFeedbackOutcome.Partial : MoveFeedbackOutcome.Failure,
+                result.Moved.Count, result.TotalCount);
 
             if (result.Moved.Count > 0)
                 _usageStore.RecordSelection(options.RootPath, relativeDestination);
@@ -432,12 +464,12 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void OnDemoConfirmed(string relativeDestination)
+    private async void OnDemoConfirmed(string relativeDestination)
     {
-        _tray?.ShowStatus(
-            "演示模式：未移动文件",
-            $"演示目标：{relativeDestination}",
-            3000);
+        var feedback = _overlay?.StartMoveFeedback(demo: true);
+        await Task.Delay(300);
+        if (feedback is not null) feedback.Complete(MoveFeedbackOutcome.Success, 1, 1);
+        else _tray?.ShowStatus("演示模式：未移动文件", $"演示目标：{relativeDestination}", 3000);
     }
 
     private async void OnCreateFolderRequested(string parentRelativePath, bool isDemo)

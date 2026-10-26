@@ -16,14 +16,21 @@
 
 ## 下载
 
-当前版本：**v0.6.3**，适用于 Windows 10 / Windows 11 x64，无需另装 .NET Runtime，也无需激活码。
+当前版本：**v0.6.4**，适用于 Windows 10 / Windows 11 x64，无需另装 .NET Runtime，也无需激活码。
 
 | 下载方式 | GitHub |
 | --- | --- |
-| 安装版 | [下载安装程序](https://github.com/wdmhydw/LingRing/releases/download/v0.6.3/LingRing-0.6.3-windows-x64-setup.exe) |
-| 便携版 | [下载便携 ZIP](https://github.com/wdmhydw/LingRing/releases/download/v0.6.3/LingRing-0.6.3-windows-x64-portable.zip) |
+| 安装版 | [下载安装程序](https://github.com/wdmhydw/LingRing/releases/download/v0.6.4/LingRing-0.6.4-windows-x64-setup.exe) |
+| 便携版 | [下载便携 ZIP](https://github.com/wdmhydw/LingRing/releases/download/v0.6.4/LingRing-0.6.4-windows-x64-portable.zip) |
 
-升级前先从托盘退出旧版，原有默认起点与常用排序会保留。本版未做代码签名；文件校验值随 Release 提供。详见 [0.6.3 更新说明](docs/release-v0.6.3.md)。
+升级前先从托盘退出旧版，原有默认起点与常用排序会保留。本版未做代码签名；文件校验值随 Release 提供。详见 [0.6.4 更新说明](docs/release-v0.6.4.md)。
+
+## 0.6.4 更新
+
+- **各级展开同速**：首次打开、二级、三级和更深层统一约 0.56 秒，由圆心向外缓入缓出；圆环和文字同步展开，已有父级保持原位。
+- **原位置操作反馈**：确认移动后轮盘收拢，蓝色等待环、绿色完成、黄色部分完成和红色失败清楚区分结果；采用厚环和实心圆盘，结果符号与文字为白色。
+- **悬停更柔和**：背景轻微向外响应，名称和点击区域保持稳定，快速切换连续衔接。
+- 保留蓝弧导航、快速滚轮、边角适配与系统减少动画支持。
 
 ## 0.6.3 更新
 
@@ -136,6 +143,7 @@ dotnet test tests\GongSiOrganizer.Core.Tests\GongSiOrganizer.Core.Tests.csproj -
 - [完整使用说明](docs/同心圆原型使用说明.txt)
 - [架构与安全说明](docs/架构与安全说明.md)
 - [v0.6.3 更新说明](docs/release-v0.6.3.md)
+- [v0.6.4 更新说明](docs/release-v0.6.4.md)
 - [v0.6.3 构建与发行验收](docs/RELEASE_VERIFICATION_0.6.3.md)
 - [公开截图脱敏说明](docs/SCREENSHOT_PRIVACY.md)
 - [当前验收记录](docs/ACCEPTANCE_LOG.md)

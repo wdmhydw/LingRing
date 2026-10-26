@@ -25,6 +25,7 @@ internal sealed class RadialOverlayWindow : Window
     private IReadOnlyList<string> _sourceFiles = [];
     private bool _isDemo;
     private bool _folderNameDialogOpen;
+    private MoveFeedbackWindow? _moveFeedback;
 
     public RadialOverlayWindow()
     {
@@ -47,7 +48,7 @@ internal sealed class RadialOverlayWindow : Window
         _surface = new Canvas();
         _surface.Children.Add(_control);
         Content = _surface;
-        Closed += (_, _) => _control.ReleaseSession();
+        Closed += (_, _) => { _control.ReleaseSession(); _moveFeedback?.Dismiss(); };
         PreviewKeyDown += OnPreviewKeyDown;
     }
 
@@ -211,6 +212,27 @@ internal sealed class RadialOverlayWindow : Window
 
     public bool HoverDemo(int ringIndex) => _control.HoverDemo(ringIndex);
 
+    public MoveFeedbackWindow? StartMoveFeedback(bool demo = false)
+    {
+        if (!IsVisible || _placement is null) return null;
+        _moveFeedback?.Dismiss();
+        // Freeze the last menu picture before releasing the directory session and its timers.
+        try
+        {
+            _control.UpdateLayout();
+            var snapshot = UiMotion.Enabled ? VisualTreeHelper.GetDrawing(_control)?.CloneCurrentValue() : null;
+            snapshot?.Freeze();
+            _moveFeedback = new MoveFeedbackWindow(_placement, snapshot, demo);
+            return _moveFeedback;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or ArgumentException)
+        {
+            // Feedback is optional; a display failure must not prevent the requested file move.
+            return null;
+        }
+        finally { HideImmediately(); }
+    }
+
     public void SaveSnapshot(string path)
     {
         var dpi = VisualTreeHelper.GetDpi(_control);
@@ -237,6 +259,8 @@ internal sealed class RadialOverlayWindow : Window
         RadialMenuSession? session,
         int sourceItemCount)
     {
+        _moveFeedback?.Dismiss();
+        _moveFeedback = null;
         _placement = placement;
         ++_visibilityGeneration; _closing = false;
         BeginAnimation(OpacityProperty, null); Opacity = 1; _surface.IsHitTestVisible = true;
@@ -263,14 +287,17 @@ internal sealed class RadialOverlayWindow : Window
 
     private void OnConfirmed(string relativePath)
     {
-        if (_sourceFiles.Count == 0) return;
+        if (_sourceFiles.Count == 0 || _closing) return;
         var sourceFiles = _sourceFiles;
         var isDemo = _isDemo;
-        HideImmediately();
-        if (isDemo)
-            DemoConfirmed?.Invoke(relativePath);
-        else
-            MoveRequested?.Invoke(sourceFiles, relativePath);
+        _surface.IsHitTestVisible = false;
+        try
+        {
+            // The handler captures the menu before its first await, then starts the operation immediately.
+            if (isDemo) DemoConfirmed?.Invoke(relativePath);
+            else MoveRequested?.Invoke(sourceFiles, relativePath);
+        }
+        finally { if (IsVisible) HideImmediately(); }
     }
 
     private void OnCreateFolderRequested(string relativePath) =>

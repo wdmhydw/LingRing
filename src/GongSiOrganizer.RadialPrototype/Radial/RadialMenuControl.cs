@@ -62,7 +62,7 @@ internal sealed class RadialMenuControl : FrameworkElement
     private RadialLayoutPlan? _layout;
     private RadialMenuSession? _session;
     private RadialHit _visualHover = RadialHit.None;
-    private RadialHit _previousVisualHover = RadialHit.None;
+    private readonly Dictionary<(int Ring, int Slot), double> _hoverOrigins = [];
     private RadialHit _hoverCandidate = RadialHit.None;
     private RadialRingView[]? _previousViews;
     private RadialRingView[] _observedViews = [];
@@ -73,7 +73,6 @@ internal sealed class RadialMenuControl : FrameworkElement
     private int _reentryGeneration;
     private bool _wheelTransitionActive;
     private bool _applyingWheelRotation;
-    private bool _ringTransitionContentOnly;
     private int _ringTransitionDirection = 1;
     private int _wheelTransitionRingIndex = -1;
     private int _queuedWheelSteps;
@@ -142,12 +141,11 @@ internal sealed class RadialMenuControl : FrameworkElement
         _previousViews = null;
         _observedViews = CaptureRingViews();
         _wheelTransitionActive = false;
-        _ringTransitionContentOnly = false;
         _wheelTransitionRingIndex = -1;
         _queuedWheelSteps = 0;
         _queuedWheelRingIndex = -1;
         _visualHover = RadialHit.None;
-        _previousVisualHover = RadialHit.None;
+        _hoverOrigins.Clear();
         _hoverCandidate = RadialHit.None;
         CancelIntent(true);
         _contentCache.Clear();
@@ -163,8 +161,11 @@ internal sealed class RadialMenuControl : FrameworkElement
         if (_session is not null) _session.Changed -= OnSessionChanged;
         _session?.Dispose();
         _ringTransitionGeneration++;
+        _hoverTransitionGeneration++;
         BeginAnimation(RingTransitionProgressProperty, null);
         BeginAnimation(OpenProgressProperty, null);
+        BeginAnimation(HoverTransitionProgressProperty, null);
+        _hoverOrigins.Clear();
         CancelIntent(true);
         _session = null;
         _observedViews = [];
@@ -552,7 +553,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         BeginAnimation(OpenProgressProperty, null);
         OpenProgress = 1;
         if (UiMotion.Enabled)
-            BeginAnimation(OpenProgressProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(420))
+            BeginAnimation(OpenProgressProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(UiMotion.RingOpen))
             { FillBehavior = FillBehavior.Stop });
     }
 
@@ -637,18 +638,11 @@ internal sealed class RadialMenuControl : FrameworkElement
         var progress = Math.Clamp(RingTransitionProgress, 0, 1);
         for (var ringIndex = 0; ringIndex < layout.Rings.Count; ringIndex++)
         {
-            var opening = UiMotion.Enabled ? EaseOut((OpenProgress * 420 - ringIndex * 40) / 320) : 1;
-            drawingContext.PushOpacity(opening);
-            drawingContext.PushTransform(new ScaleTransform(.88 + .12 * opening, .88 + .12 * opening,
-                layout.LocalCenter.X, layout.LocalCenter.Y));
             var current = currentViews[ringIndex];
             var previous = _previousViews is not null && ringIndex < _previousViews.Length
                 ? _previousViews[ringIndex]
                 : null;
-            var hasTransitionDifference = previous is not null &&
-                                          (_ringTransitionContentOnly
-                                              ? !RingContentsEquivalent(previous, current)
-                                              : !RingViewsEquivalent(previous, current));
+            var hasTransitionDifference = previous is not null && !RingContentsEquivalent(previous, current);
             if (previous is not null &&
                 progress < 0.999 &&
                 hasTransitionDifference)
@@ -667,16 +661,13 @@ internal sealed class RadialMenuControl : FrameworkElement
                 }
                 else
                 {
-                    // The surface stays still while the two content layers
-                    // hand over. Names never inherit rotation or scale.
-                    DrawRingView(drawingContext, layout, ringIndex, current,
-                        Math.Min(1, progress * 3), 1, 0, false, contentOpacity: 0);
+                    // Every newly shown level uses the opening motion: its surface
+                    // and names expand together from the center. Existing parents
+                    // stay put; replaced contents fade without moving inward.
                     DrawRingView(drawingContext, layout, ringIndex, previous,
-                        1 - EaseOut(progress * 2.4), 1, 0, false, contentOnly: true,
-                        contentRadialOffset: -12 * _ringTransitionDirection * progress);
+                        1 - EaseOut(progress * 2.4), 1, 0, false);
                     DrawRingView(drawingContext, layout, ringIndex, current,
-                        EaseOut((progress - .08) / .92), 1, 0, true, contentOnly: true,
-                        contentRadialOffset: 18 * _ringTransitionDirection * (1 - EaseOut(progress)));
+                        1, 1, 0, true, revealProgress: progress);
                 }
             }
             else
@@ -691,8 +682,6 @@ internal sealed class RadialMenuControl : FrameworkElement
                     0,
                     true);
             }
-            drawingContext.Pop();
-            drawingContext.Pop();
         }
 
     }
@@ -760,9 +749,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         double scale,
         double angleOffset,
         bool interactive,
-        bool contentOnly = false,
-        double contentOpacity = 1,
-        double contentRadialOffset = 0)
+        double? revealProgress = null)
     {
         if (view.TotalCount == 0 || opacity <= 0.001) return;
         var visibleCount = Math.Min(view.TotalCount, RadialLayout.SlotsPerRing);
@@ -791,7 +778,7 @@ internal sealed class RadialMenuControl : FrameworkElement
                 folder,
                 hoverAmount,
                 isSelected,
-                angleOffset, contentOnly, contentOpacity, contentRadialOffset);
+                angleOffset, revealProgress);
         }
 
         drawingContext.Pop();
@@ -809,9 +796,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         double hoverAmount,
         bool isSelected,
         double angleOffset,
-        bool contentOnly = false,
-        double contentOpacity = 1,
-        double contentRadialOffset = 0)
+        double? revealProgress = null)
     {
         var slotSweep = ring.SweepAngle / visibleCount;
         var angularGap = RadialLayout.CellGap(ring, visibleCount);
@@ -821,8 +806,20 @@ internal sealed class RadialMenuControl : FrameworkElement
         var inner = ring.InnerRadius;
         var outer = ring.OuterRadius;
         var midAngle = (start + end) / 2;
+        var lift = UiMotion.Enabled ? 2 * Math.Clamp(hoverAmount, 0, 1.05) : 0;
         hoverAmount = Math.Clamp(hoverAmount, 0, 1);
         var radians = midAngle * Math.PI / 180;
+
+        // Child rings have their own reveal clock. Reusing the completed menu
+        // opening clock made them appear at full size immediately.
+        var elapsed = (revealProgress ?? OpenProgress) * UiMotion.RingOpen;
+        var opening = UiMotion.Enabled
+            ? UiMotion.RingEase((elapsed - slot * UiMotion.RingSlotStagger) / UiMotion.RingSlotDuration)
+            : 1;
+        drawingContext.PushOpacity(opening);
+        var openScale = .88 + .12 * opening;
+        drawingContext.PushTransform(new ScaleTransform(openScale, openScale,
+            layout.LocalCenter.X, layout.LocalCenter.Y));
 
         var geometry = CellGeometry(layout, inner, outer, start, end);
         // Animate the cached cell, not its layout inputs. Re-measuring text
@@ -848,25 +845,25 @@ internal sealed class RadialMenuControl : FrameworkElement
                 hoverAmount)),
             (isSelected ? 1.05 : 0.95) + (isSelected ? 0.65 : 0.8) * hoverAmount);
         stroke.LineJoin = PenLineJoin.Round;
-        if (!contentOnly) drawingContext.DrawGeometry(fill, stroke, geometry);
+        drawingContext.PushTransform(new TranslateTransform(lift * Math.Cos(radians), lift * Math.Sin(radians)));
+        drawingContext.DrawGeometry(fill, stroke, geometry);
+        drawingContext.Pop();
 
-        if (folder is not null && contentOpacity > .001)
+        if (folder is not null)
         {
-            drawingContext.PushOpacity(contentOpacity);
             drawingContext.PushClip(geometry);
             var center = Polar(layout.LocalCenter, (inner + outer) / 2, midAngle);
             var content = CellContent(geometry, center);
-            drawingContext.PushTransform(new TranslateTransform(contentRadialOffset * Math.Cos(radians), contentRadialOffset * Math.Sin(radians)));
             var label = FormatLabel(folder.DisplayName, content);
             if (angleOffset != 0)
                 drawingContext.PushTransform(new RotateTransform(-angleOffset, content.Center.X, content.Center.Y));
             if (label.Text is not null) drawingContext.DrawText(label.Text, label.Origin);
             if (angleOffset != 0) drawingContext.Pop();
             drawingContext.Pop();
-            drawingContext.Pop();
-            drawingContext.Pop();
         }
         if (angleOffset != 0) drawingContext.Pop();
+        drawingContext.Pop();
+        drawingContext.Pop();
     }
 
     private void DrawCenter(DrawingContext dc, RadialLayoutPlan layout, RadialMenuSession? session)
@@ -1104,7 +1101,6 @@ internal sealed class RadialMenuControl : FrameworkElement
         _ringTransitionDirection = direction == 0 ? 1 : Math.Sign(direction);
         _wheelTransitionRingIndex = wheelRingIndex;
         _wheelTransitionActive = wheelRingIndex >= 0;
-        _ringTransitionContentOnly = contentChangesOnly;
         if (!_wheelTransitionActive)
         {
             _queuedWheelSteps = 0;
@@ -1120,7 +1116,7 @@ internal sealed class RadialMenuControl : FrameworkElement
             _previousViews = null; _wheelTransitionActive = false;
             RingTransitionProgress = 1; UpdateDetails(); return;
         }
-        var duration = TimeSpan.FromMilliseconds(wheelRingIndex >= 0 ? UiMotion.Wheel : UiMotion.Content);
+        var duration = TimeSpan.FromMilliseconds(wheelRingIndex >= 0 ? UiMotion.Wheel : UiMotion.RingOpen);
         var animation = new DoubleAnimationUsingKeyFrames
         {
             Duration = new Duration(duration),
@@ -1137,7 +1133,6 @@ internal sealed class RadialMenuControl : FrameworkElement
             _previousViews = null;
             RingTransitionProgress = 1;
             _wheelTransitionRingIndex = -1;
-            _ringTransitionContentOnly = false;
             _wheelTransitionActive = false;
             InvalidateVisual();
             UpdateDetails();
@@ -1159,24 +1154,37 @@ internal sealed class RadialMenuControl : FrameworkElement
     private void StartHoverTransition(RadialHit next)
     {
         if (Equals(next, _visualHover)) return;
-        _previousVisualHover = _visualHover;
+        // Capture the current picture before retargeting, including a partly faded older cell.
+        var origins = new Dictionary<(int Ring, int Slot), double>();
+        for (var ring = 0; ring < 3; ring++)
+            for (var slot = 0; slot < RadialLayout.SlotsPerRing; slot++)
+            {
+                var amount = GetHoverAmount(ring, slot);
+                if (amount > .001) origins[(ring, slot)] = amount;
+            }
+        _hoverOrigins.Clear();
+        foreach (var pair in origins) _hoverOrigins[pair.Key] = pair.Value;
         _visualHover = next;
         UpdateEntryBreathing();
         DismissNameTip();
         if (next.HasValue) _nameTimer.Start();
         var generation = ++_hoverTransitionGeneration;
         BeginAnimation(HoverTransitionProgressProperty, null);
-        HoverTransitionProgress = 1;
-        if (!UiMotion.Enabled) { _previousVisualHover = RadialHit.None; InvalidateVisual(); return; }
+        HoverTransitionProgress = 0;
+        if (!UiMotion.Enabled)
+        {
+            HoverTransitionProgress = 1;
+            _hoverOrigins.Clear(); InvalidateVisual(); return;
+        }
         var animation = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(UiMotion.Hover))
         {
-            EasingFunction = UiMotion.EaseOut(),
             FillBehavior = FillBehavior.Stop
         };
         animation.Completed += (_, _) =>
         {
             if (generation != _hoverTransitionGeneration) return;
-            _previousVisualHover = RadialHit.None;
+            HoverTransitionProgress = 1;
+            _hoverOrigins.Clear();
             InvalidateVisual();
         };
         BeginAnimation(
@@ -1190,13 +1198,10 @@ internal sealed class RadialMenuControl : FrameworkElement
         var progress = Math.Clamp(HoverTransitionProgress, 0, 1);
         var current = _visualHover.RingIndex == ringIndex &&
                       _visualHover.SlotIndex == slotIndex;
-        var previous = _previousVisualHover.RingIndex == ringIndex &&
-                       _previousVisualHover.SlotIndex == slotIndex;
-        if (current && previous) return 1;
-        return Math.Clamp(
-            (current ? progress : 0) + (previous ? 1 - progress : 0),
-            0,
-            1);
+        var origin = _hoverOrigins.GetValueOrDefault((ringIndex, slotIndex));
+        return current
+            ? origin + (1 - origin) * UiMotion.Settle(progress)
+            : origin * (1 - EaseOut(progress));
     }
 
     private static bool RingViewsEquivalent(RadialRingView left, RadialRingView right)

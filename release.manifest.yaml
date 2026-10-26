@@ -1,0 +1,41 @@
+schema_version: 1
+project:
+  id: LingRing
+  category: desktop
+  classification: platform_bound
+  version_source: src/GongSiOrganizer.RadialPrototype/GongSiOrganizer.RadialPrototype.csproj
+source:
+  primary_remote: origin
+  public_repository: https://github.com/wdmhydw/LingRing
+  private_backup_remote: nas
+platforms:
+  windows-x64:
+    status: ready
+    framework: WPF / .NET 8
+    minimum_os: Windows 10 x64
+    build_host: native-windows-x64
+    runtime: self-contained
+    signing: unsigned
+    signing_policy: existing-unsigned-distribution
+  macos-arm64:
+    status: not_selected
+    reason: Existing Windows-only product; this release retains WPF, Win32 input and Explorer COM integration.
+build:
+  sdk: 8.0.422
+  restore_locked: true
+  clean_commit_required: true
+  command: powershell ./scripts/Build-LocalTrial.ps1 -Channel release
+  verification: powershell ./scripts/Verify-LocalTrial.ps1 -ArchivePath <archive>
+data:
+  settings: LocalApplicationData/GongSiOrganizer.RadialPrototype
+  business_files: user-selected-existing-directories
+  verification_override: LINGRING_DATA_ROOT
+license:
+  enabled: false
+updater:
+  enabled: false
+  channel: stable
+  provider: null
+archive:
+  root: Releases/LingRing
+  historical_cleanup_requires_authorization: true

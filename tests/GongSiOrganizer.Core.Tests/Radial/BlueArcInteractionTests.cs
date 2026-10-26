@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using GongSiOrganizer.Core;
+using GongSiOrganizer.RadialPrototype.Presentation;
 using GongSiOrganizer.RadialPrototype.Radial;
 using Xunit;
 
@@ -111,7 +112,7 @@ public sealed class BlueArcInteractionTests
         var (control, session, body, arc) = fixture;
         control.ProcessPointer(body);
         control.ProcessPointer(arc);
-        Pump(550);
+        Pump(UiMotion.RingOpen + 190);
         control.ProcessPointer(RadialGeometry.Polar(fixture.Layout.LocalCenter, 275, -116));
         control.ProcessPointer(arc);
         Assert.True(control.EntryPending);
@@ -147,7 +148,7 @@ public sealed class BlueArcInteractionTests
         var (control, session, body, arc) = fixture;
         control.ProcessPointer(body);
         control.ProcessPointer(arc);
-        Pump(550);
+        Pump(UiMotion.RingOpen + 190);
         Assert.Equal(3, session.Path.Count);
         for (var radius = 255.75; radius >= 243.25; radius -= .25)
             control.ProcessPointer(RadialGeometry.Polar(fixture.Layout.LocalCenter, radius, -116));
@@ -170,7 +171,7 @@ public sealed class BlueArcInteractionTests
         control.ProcessPointer(RadialGeometry.Polar(fixture.Layout.LocalCenter, 243, -116));
         control.ProcessPointer(arc);
         Assert.True(control.EntryPending);
-        Pump(510);
+        Pump(UiMotion.RingOpen + 160);
         Assert.Equal(4, session.Path.Count);
         Pump(600);
         Assert.Equal(4, session.Path.Count);
@@ -185,7 +186,7 @@ public sealed class BlueArcInteractionTests
         var besideEnd = RadialGeometry.Polar(fixture.Layout.LocalCenter, 256, -99);
         control.ProcessPointer(body);
         control.ProcessPointer(nearEnd);
-        Pump(550);
+        Pump(UiMotion.RingOpen + 190);
         Assert.Equal(3, session.Path.Count);
         control.ProcessPointer(besideEnd);
         control.ProcessPointer(nearEnd);
@@ -223,7 +224,7 @@ public sealed class BlueArcInteractionTests
         Pump(100);
         Assert.Equal("第四级", session.GetRingView(2).Slots[0]!.DisplayName);
         if (SystemParameters.ClientAreaAnimation) Assert.True(control.IsTransitioning);
-        Pump(400);
+        Pump(UiMotion.RingOpen + 40);
         Assert.False(control.IsTransitioning);
         Assert.True(control.EntryLocked);
     });
@@ -240,6 +241,177 @@ public sealed class BlueArcInteractionTests
         Pump(100);
         Assert.Equal(settled, Frame(fixture.Control));
         if (SystemParameters.ClientAreaAnimation) Assert.NotEqual(early, settled);
+    });
+
+    [Fact]
+    public void FirstAndDeeperMenusAdvanceAtTheSamePace() => OnSta(() =>
+    {
+        if (!SystemParameters.ClientAreaAnimation) return;
+        using var first = new MenuFixture();
+        using var deeper = new MenuFixture();
+        var previous = Enumerable.Range(0, 3).Select(deeper.Session.GetRingView).ToArray();
+        Assert.True(deeper.Session.Hover(2, 0));
+        first.Control.PlayOpen();
+        typeof(RadialMenuControl).GetMethod("StartRingTransition",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(deeper.Control, [previous, 1, -1, true]);
+        Pump(UiMotion.RingOpen / 2);
+        double Progress(RadialMenuControl control, string property) =>
+            (double)typeof(RadialMenuControl).GetProperty(property,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(control)!;
+        var firstProgress = Progress(first.Control, "OpenProgress");
+        var deeperProgress = Progress(deeper.Control, "RingTransitionProgress");
+        Assert.InRange(firstProgress, .3, .75);
+        Assert.InRange(Math.Abs(firstProgress - deeperProgress), 0, .045);
+        Pump(UiMotion.RingOpen);
+        Assert.False(deeper.Control.IsTransitioning);
+    });
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    public void ChildRingSurfaceAndTextExpandOutwardTogether(int ringIndex, bool replaceContents) => OnSta(() =>
+    {
+        if (!SystemParameters.ClientAreaAnimation) return;
+        using var fixture = new MenuFixture();
+        while (fixture.Session.Path.Count > (replaceContents ? 2 : ringIndex - 1))
+            fixture.Session.NavigateBack();
+        fixture.Control.Configure(fixture.Layout, fixture.Session);
+        var previous = Enumerable.Range(0, 3).Select(fixture.Session.GetRingView).ToArray();
+        Assert.True(fixture.Session.Hover(replaceContents ? 2 : ringIndex - 1, 0));
+        typeof(RadialMenuControl).GetMethod("StartRingTransition",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(fixture.Control, [previous, 1, -1, true]);
+        Assert.True(fixture.Control.IsTransitioning);
+
+        var label = fixture.Session.GetRingView(ringIndex).Slots[0]!.DisplayName;
+        var early = ExpansionFrame(fixture, ringIndex, label, .12);
+        var middle = ExpansionFrame(fixture, ringIndex, label, .25);
+        var settled = ExpansionFrame(fixture, ringIndex, label, 1);
+        Assert.True(early.SurfaceWidth < middle.SurfaceWidth, "The new ring surface must expand instead of flashing at its final size.");
+        Assert.True(middle.SurfaceWidth < settled.SurfaceWidth);
+        Assert.True(early.LabelRadius < middle.LabelRadius, "The new name must start nearer the center and move outward.");
+        Assert.True(middle.LabelRadius < settled.LabelRadius);
+        Assert.Equal(early.SurfaceWidth / settled.SurfaceWidth, early.LabelRadius / settled.LabelRadius, 5);
+        Assert.Equal(early.ParentLabel, middle.ParentLabel);
+        Assert.Equal(early.ParentLabel, settled.ParentLabel);
+
+        // Optional native frames for reviewing the actual renderer, including the
+        // opening boundary and a settled hold. Normal test runs create no files.
+        if (Environment.GetEnvironmentVariable("LINGRING_MOTION_CAPTURE_ROOT") is { Length: > 0 } captureRoot)
+        {
+            var output = System.IO.Path.Combine(captureRoot, replaceContents ? "deeper" : $"level-{ringIndex + 1}");
+            System.IO.Directory.CreateDirectory(output);
+            var transitionFrames = (int)Math.Ceiling(UiMotion.RingOpen / 20d);
+            for (var index = 0; index < transitionFrames + 43; index++)
+            {
+                var frame = RenderExpansionFrame(fixture, Math.Clamp((index - 15) / (double)transitionFrames, 0, 1));
+                var bitmap = new RenderTargetBitmap((int)fixture.Control.ActualWidth, (int)fixture.Control.ActualHeight,
+                    96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(frame);
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var stream = System.IO.File.Create(System.IO.Path.Combine(output, $"{index:000}.png"));
+                encoder.Save(stream);
+            }
+        }
+    });
+
+    private static DrawingVisual RenderExpansionFrame(MenuFixture fixture, double progress)
+    {
+        var property = (DependencyProperty)typeof(RadialMenuControl).GetField("RingTransitionProgressProperty",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
+        fixture.Control.BeginAnimation(property, null);
+        fixture.Control.SetValue(property, progress);
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+            typeof(RadialMenuControl).GetMethod("OnRender",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(fixture.Control, [dc]);
+        return visual;
+    }
+
+    private static (double SurfaceWidth, double LabelRadius, Rect ParentLabel) ExpansionFrame(
+        MenuFixture fixture, int ringIndex, string label, double progress)
+    {
+        var visual = RenderExpansionFrame(fixture, progress);
+        double surfaceWidth = 0, labelRadius = 0;
+        var parentLabel = Rect.Empty;
+        var center = fixture.Layout.LocalCenter;
+        void Visit(Drawing drawing, Matrix transform, bool clipped)
+        {
+            if (drawing is DrawingGroup group)
+            {
+                var matrix = (group.Transform?.Value ?? Matrix.Identity) * transform;
+                foreach (var child in group.Children) Visit(child, matrix, clipped || group.ClipGeometry is not null);
+            }
+            else if (drawing is GeometryDrawing surface &&
+                     Math.Abs(surface.Geometry.Bounds.Width - fixture.Layout.Rings[ringIndex].OuterRadius * 2) < .01)
+            {
+                var bounds = surface.Geometry.Bounds;
+                bounds.Transform(transform);
+                surfaceWidth = bounds.Width;
+            }
+            else if (drawing is GlyphRunDrawing glyph && clipped)
+            {
+                var text = new string(glyph.GlyphRun.Characters.ToArray());
+                var bounds = glyph.Bounds;
+                bounds.Transform(transform);
+                if (text == "1") parentLabel = bounds;
+                if (text == label)
+                    labelRadius = Math.Sqrt(Math.Pow(bounds.Left + bounds.Width / 2 - center.X, 2) +
+                                            Math.Pow(bounds.Top + bounds.Height / 2 - center.Y, 2));
+            }
+        }
+        Visit(visual.Drawing, Matrix.Identity, false);
+        Assert.True(surfaceWidth > 0);
+        Assert.True(labelRadius > 0);
+        Assert.False(parentLabel.IsEmpty);
+        return (surfaceWidth, labelRadius, parentLabel);
+    }
+
+    [Fact]
+    public void RapidHoverKeepsFolderGlyphsAndHitTargetsStable() => OnSta(() =>
+    {
+        var roots = Enumerable.Range(1, 4).Select(i => new FolderMenuNode($"目录{i}", $"folder{i}", [])).ToArray();
+        using var fixture = new MenuFixture(roots: roots);
+        List<Rect> FolderBounds()
+        {
+            var bounds = new List<Rect>();
+            void Visit(Drawing drawing, Matrix transform, bool clipped)
+            {
+                if (drawing is DrawingGroup group)
+                {
+                    var matrix = (group.Transform?.Value ?? Matrix.Identity) * transform;
+                    foreach (var child in group.Children) Visit(child, matrix, clipped || group.ClipGeometry is not null);
+                }
+                else if (drawing is GlyphRunDrawing glyph && clipped)
+                {
+                    var rect = glyph.Bounds;
+                    rect.Transform(transform);
+                    bounds.Add(rect);
+                }
+            }
+            Visit(VisualTreeHelper.GetDrawing(fixture.Control), Matrix.Identity, false);
+            return bounds;
+        }
+        var original = FolderBounds();
+        Assert.NotEmpty(original);
+        var baseline = Frame(fixture.Control);
+        foreach (var angle in new[] { -90d, 0d, 90d, 180d, -90d })
+        {
+            var point = RadialGeometry.Polar(fixture.Layout.LocalCenter, 88, angle);
+            Assert.True(fixture.Control.HasMenuHit(point));
+            fixture.Control.ProcessPointer(point);
+            Pump(35);
+            Assert.Equal(original, FolderBounds());
+        }
+        Pump(250);
+        var settled = Frame(fixture.Control);
+        Assert.NotEqual(baseline, settled);
+        Pump(80);
+        Assert.Equal(original, FolderBounds());
+        Assert.Equal(settled, Frame(fixture.Control));
     });
 
     [Theory]
@@ -389,7 +561,7 @@ public sealed class BlueArcInteractionTests
         control.ProcessPointer(arc);
         Pump(180);
         Assert.Equal(3, session.Path.Count);
-        Pump(430);
+        Pump(UiMotion.RingOpen + 70);
         Assert.False(control.IsTransitioning);
         control.ProcessPointer(arc);
         Pump(180);

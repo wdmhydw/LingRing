@@ -25,6 +25,8 @@ internal sealed record PrototypeOptions(
     int CaptureDelayMilliseconds)
 {
     public string DemoPosition { get; init; } = "center";
+    public string? DemoFeedback { get; init; }
+    public bool DemoReducedMotion { get; init; }
     public bool IsDemoLaunch =>
         Demo ||
         DemoCorner ||
@@ -37,6 +39,7 @@ internal sealed record PrototypeOptions(
         DemoScroll ||
         DemoScrollTwice ||
         DemoHoverRing >= 0 ||
+        DemoFeedback is not null ||
         !string.IsNullOrWhiteSpace(CapturePath);
 
     public static PrototypeOptions Parse(IReadOnlyList<string> args)
@@ -91,9 +94,15 @@ internal sealed record PrototypeOptions(
         }
 
         var demoPosition = "center";
+        string? demoFeedback = null;
         for (var index = 0; index < args.Count - 1; index++)
+        {
             if (args[index].Equals("--demo-position", StringComparison.OrdinalIgnoreCase))
                 demoPosition = args[index + 1].ToLowerInvariant();
+            if (args[index].Equals("--demo-feedback", StringComparison.OrdinalIgnoreCase) &&
+                args[index + 1].ToLowerInvariant() is "success" or "partial" or "failure" or "busy")
+                demoFeedback = args[index + 1].ToLowerInvariant();
+        }
 
         return new PrototypeOptions(
             profile.RootPath,
@@ -114,6 +123,11 @@ internal sealed record PrototypeOptions(
             args.Any(value => value.Equals("--no-listener", StringComparison.OrdinalIgnoreCase)),
             selectionProbePath,
             capturePath,
-            captureDelayMilliseconds) { DemoPosition = demoPosition };
+            captureDelayMilliseconds)
+        {
+            DemoPosition = demoPosition,
+            DemoFeedback = demoFeedback,
+            DemoReducedMotion = args.Any(value => value.Equals("--demo-reduced-motion", StringComparison.OrdinalIgnoreCase))
+        };
     }
 }

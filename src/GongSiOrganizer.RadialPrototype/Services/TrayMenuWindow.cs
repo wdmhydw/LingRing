@@ -110,8 +110,8 @@ internal sealed class TrayMenuWindow : Window
         ToggleVisual successToggle = null!;
         successToggle = CreateToggleRow(
             "✓",
-            "移动成功提示",
-            "默认静默，失败仍会提示",
+            "桌面成功通知",
+            "额外显示目标路径，失败始终提示",
             () =>
             {
                 _successNoticesEnabled = !_successNoticesEnabled;
