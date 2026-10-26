@@ -151,6 +151,7 @@ dotnet test tests\GongSiOrganizer.Core.Tests\GongSiOrganizer.Core.Tests.csproj -
 - [v0.6.3 更新说明](docs/release-v0.6.3.md)
 - [v0.6.4 更新说明](docs/release-v0.6.4.md)
 - [v0.6.5 更新说明](docs/release-v0.6.5.md)
+- [v0.6.5 构建与发行验收](docs/RELEASE_VERIFICATION_0.6.5.md)
 - [v0.6.4 构建与发行验收](docs/RELEASE_VERIFICATION_0.6.4.md)
 - [v0.6.3 构建与发行验收](docs/RELEASE_VERIFICATION_0.6.3.md)
 - [公开截图脱敏说明](docs/SCREENSHOT_PRIVACY.md)
