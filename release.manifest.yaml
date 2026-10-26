@@ -39,3 +39,13 @@ updater:
 archive:
   root: Releases/LingRing
   historical_cleanup_requires_authorization: true
+cleanup:
+  required_after_verified_publication: true
+  command: pwsh ./scripts/Clear-ReleaseStaging.ps1 -Version <version>
+  preview: pwsh ./scripts/Clear-ReleaseStaging.ps1 -Version <version> -WhatIf
+  verification: pwsh ./tests/Verify-ReleaseStagingCleanup.ps1
+  targets: [artifacts/publish-<version>, artifacts/dev-<version>]
+  mode: windows-recycle-bin
+  prerequisites: [archive-hashes, github-download-receipt, private-download-receipt, publication-complete]
+  report: cleanup-verification.json
+  preserve: [Releases, historical-versions, source-worktrees, user-data]

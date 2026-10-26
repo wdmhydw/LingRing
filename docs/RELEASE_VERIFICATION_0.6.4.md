@@ -36,4 +36,6 @@
 
 本地唯一长期归档：`Releases/LingRing/0.6.4/windows-x64/`。公开清单只包含发行文件和构建信息；完整内部文件索引为 `archive-manifest.json`，包含测试与原生预览证据。
 
-干净构建工作树和运行验证临时目录均已清理。本次上传暂存 `artifacts/publish-0.6.4/`（265,124,905 字节）与独立开发构建 `artifacts/dev-0.6.4/`（8,528,683 字节）的清理被自动审批策略拦截；在分别核实绝对路径、无链接、归档和两端回读一致后，缩小范围的清理仍被拦截，故保留副本。未删除任何历史 Release、tag 或归档。
+干净构建工作树和运行验证临时目录均已清理。用户随后明确要求清理本次临时目录并保留正式包；复核完整归档、两端回读、绝对路径及无链接后，本次上传暂存 `artifacts/publish-0.6.4/`（12 个文件、265,124,905 字节）与独立开发构建 `artifacts/dev-0.6.4/`（170 个文件、8,528,683 字节）已移入 Windows 回收站。项目内两个临时目录均已清掉；共约 261 MiB 在回收站中保留恢复能力，尚未释放磁盘空间。正式附件哈希保持上表原值，未删除历史 Release、tag 或归档。
+
+永久删除命令此前在 PowerShell 启动前被执行工具拦截，仅返回 `blocked by policy`。本地规则检查返回 `matchedRules: []`，日志未披露具体规则；本轮采用可恢复的回收站清理后成功。后续发布固定执行 [清理流程](RELEASE_CLEANUP.md)，新入口的回归 **11/11** 通过。归档内 `cleanup-verification.json`、`cleanup-policy-diagnosis.json` 和 `release-cleanup-regression.json` 记录实际结果；仅内部证据和索引更新，已发布的四个附件不变。
