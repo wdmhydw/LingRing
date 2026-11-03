@@ -1,4 +1,6 @@
 using System.IO;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 
@@ -18,6 +20,7 @@ internal sealed record TargetResolution(
 
 internal sealed class FileTargetResolver
 {
+    internal Action<string>? Trace { get; init; }
     private const uint ObjidClient = 0xFFFFFFFC;
     private const int RoleSystemListItem = 0x22;
     private const int StateSystemSelected = 0x2;
@@ -31,7 +34,25 @@ internal sealed class FileTargetResolver
 
     public Task<TargetResolution> ResolveAsync(
         NativeHitContext hitContext,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RunOnSta(() => Resolve(hitContext, cancellationToken), cancellationToken);
+
+    public Task WarmUpAsync() => RunOnSta(() =>
+    {
+        // Initialize the fallback provider away from the UI thread. Do not hit
+        // test the pointer, read a selection, or retain any file target here.
+        var shellWindow = GetShellWindow();
+        if (shellWindow != IntPtr.Zero)
+        {
+            _ = AutomationElement.FromHandle(shellWindow)?.Current.ProcessId;
+            _ = ResolveAccessibleListItemName(shellWindow, new NativeScreenPoint(-32_000, -32_000));
+        }
+        return TargetResolution.Invalid(string.Empty, string.Empty);
+    }, default);
+
+    private static Task<TargetResolution> RunOnSta(
+        Func<TargetResolution> action,
+        CancellationToken cancellationToken)
     {
         var completion = new TaskCompletionSource<TargetResolution>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -40,7 +61,7 @@ internal sealed class FileTargetResolver
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                completion.TrySetResult(Resolve(hitContext, cancellationToken));
+                completion.TrySetResult(action());
             }
             catch (OperationCanceledException)
             {
@@ -64,25 +85,37 @@ internal sealed class FileTargetResolver
         return completion.Task;
     }
 
-    private static TargetResolution Resolve(
+    private TargetResolution Resolve(
         NativeHitContext hitContext,
         CancellationToken cancellationToken)
     {
         var point = hitContext.Point;
         var childWindow = hitContext.WindowHandle;
         var rootWindow = hitContext.RootWindowHandle;
+        Trace?.Invoke("worker-started");
 
-        AutomationElement? element = null;
-        try
-        {
-            element = AutomationElement.FromPoint(new System.Windows.Point(point.X, point.Y));
-        }
-        catch (ElementNotAvailableException)
-        {
-        }
-
-        var item = FindFileListItem(element);
         var accessibleName = ResolveAccessibleListItemName(childWindow, point);
+        Trace?.Invoke("accessibility-hit");
+        AutomationElement? element = null;
+        AutomationElement? item = null;
+        var automationRead = false;
+        void ReadAutomation()
+        {
+            if (automationRead) return;
+            automationRead = true;
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                element = AutomationElement.FromPoint(new System.Windows.Point(point.X, point.Y));
+                item = FindFileListItem(element);
+            }
+            catch (ElementNotAvailableException) { }
+            Trace?.Invoke("automation-hit");
+        }
+
+        // Explorer exposes the hit item through MSAA without starting UIA's
+        // provider discovery. Keep UIA for views that need the fallback.
+        if (string.IsNullOrWhiteSpace(accessibleName)) ReadAutomation();
         var name = !string.IsNullOrWhiteSpace(accessibleName)
             ? accessibleName
             : item is null
@@ -97,6 +130,7 @@ internal sealed class FileTargetResolver
             ? Path.GetFullPath(directPath)
             : ResolveUsingShell(rootWindow, name, cancellationToken)
               ?? ResolveUsingDesktopFolders(name, cancellationToken);
+        Trace?.Invoke("path-resolved");
         if (!string.IsNullOrWhiteSpace(clickedPath) && Exists(clickedPath))
         {
             clickedPath = Path.GetFullPath(clickedPath);
@@ -114,12 +148,14 @@ internal sealed class FileTargetResolver
             }
             if (selectedPaths.Count == 0)
             {
+                ReadAutomation();
                 selectedPaths = ResolveSelectedUsingAutomation(
                     item,
                     rootWindow,
                     cancellationToken);
             }
 
+            Trace?.Invoke("selection-resolved");
             return new TargetResolution(
                 true,
                 ChooseEffectivePaths(clickedPath, selectedPaths),
@@ -278,22 +314,23 @@ internal sealed class FileTargetResolver
         {
             shell = Activator.CreateInstance(shellType);
             if (shell is null) return null;
-            dynamic dynamicShell = shell;
-            windows = dynamicShell.Windows();
-            dynamic dynamicWindows = windows;
-            var count = Convert.ToInt32(dynamicWindows.Count);
+            windows = CallCom(shell, "Windows");
+            var count = Convert.ToInt32(GetCom(windows, "Count"));
             for (var index = 0; index < count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 object? shellWindow = null;
+                object? document = null;
+                object? folder = null;
                 try
                 {
-                    shellWindow = dynamicWindows.Item(index);
+                    shellWindow = CallCom(windows, "Item", index);
                     if (shellWindow is null) continue;
-                    dynamic window = shellWindow;
-                    var windowHandle = new IntPtr(Convert.ToInt64(window.HWND));
+                    var windowHandle = new IntPtr(Convert.ToInt64(GetCom(shellWindow, "HWND")));
                     if (rootWindow != IntPtr.Zero && windowHandle != rootWindow) continue;
-                    var resolved = ResolveFromFolderItems(window.Document.Folder.Items(), displayName, cancellationToken);
+                    document = GetCom(shellWindow, "Document");
+                    folder = GetCom(document, "Folder");
+                    var resolved = ResolveFromFolderItems(CallCom(folder, "Items"), displayName, cancellationToken);
                     if (resolved is not null) return resolved;
                 }
                 catch (COMException)
@@ -301,6 +338,8 @@ internal sealed class FileTargetResolver
                 }
                 finally
                 {
+                    ReleaseCom(folder);
+                    ReleaseCom(document);
                     ReleaseCom(shellWindow);
                 }
             }
@@ -308,11 +347,10 @@ internal sealed class FileTargetResolver
             object? desktop = null;
             try
             {
-                desktop = dynamicShell.NameSpace(0);
+                desktop = CallCom(shell, "NameSpace", 0);
                 if (desktop is not null)
                 {
-                    dynamic folder = desktop;
-                    return ResolveFromFolderItems(folder.Items(), displayName, cancellationToken);
+                    return ResolveFromFolderItems(CallCom(desktop, "Items"), displayName, cancellationToken);
                 }
             }
             finally
@@ -347,10 +385,8 @@ internal sealed class FileTargetResolver
         {
             shell = Activator.CreateInstance(shellType);
             if (shell is null) return [];
-            dynamic dynamicShell = shell;
-            windows = dynamicShell.Windows();
-            dynamic dynamicWindows = windows;
-            var count = Convert.ToInt32(dynamicWindows.Count);
+            windows = CallCom(shell, "Windows");
+            var count = Convert.ToInt32(GetCom(windows, "Count"));
             for (var index = 0; index < count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -359,15 +395,13 @@ internal sealed class FileTargetResolver
                 object? selectedItems = null;
                 try
                 {
-                    shellWindow = dynamicWindows.Item(index);
+                    shellWindow = CallCom(windows, "Item", index);
                     if (shellWindow is null) continue;
-                    dynamic window = shellWindow;
-                    var windowHandle = new IntPtr(Convert.ToInt64(window.HWND));
+                    var windowHandle = new IntPtr(Convert.ToInt64(GetCom(shellWindow, "HWND")));
                     if (windowHandle != rootWindow) continue;
 
-                    document = window.Document;
-                    dynamic folderView = document;
-                    selectedItems = folderView.SelectedItems();
+                    document = GetCom(shellWindow, "Document");
+                    selectedItems = CallCom(document, "SelectedItems");
                     var paths = ReadFolderItemPaths(selectedItems, cancellationToken);
                     selectedItems = null;
                     if (paths.Any(path => PathsEqual(path, clickedPath)))
@@ -474,24 +508,22 @@ internal sealed class FileTargetResolver
     }
 
     private static IReadOnlyList<string> ReadFolderItemPaths(
-        object itemsObject,
+        object? itemsObject,
         CancellationToken cancellationToken)
     {
         var paths = new List<string>();
         try
         {
-            dynamic items = itemsObject;
-            var count = Convert.ToInt32(items.Count);
+            var count = Convert.ToInt32(GetCom(itemsObject, "Count"));
             for (var index = 0; index < count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 object? itemObject = null;
                 try
                 {
-                    itemObject = items.Item(index);
+                    itemObject = CallCom(itemsObject, "Item", index);
                     if (itemObject is null) continue;
-                    dynamic item = itemObject;
-                    string? path = Convert.ToString(item.Path);
+                    string? path = Convert.ToString(GetCom(itemObject, "Path"));
                     if (!string.IsNullOrWhiteSpace(path) && Exists(path))
                     {
                         var fullPath = Path.GetFullPath(path);
@@ -590,25 +622,23 @@ internal sealed class FileTargetResolver
     }
 
     private static string? ResolveFromFolderItems(
-        object itemsObject,
+        object? itemsObject,
         string displayName,
         CancellationToken cancellationToken)
     {
         try
         {
-            dynamic items = itemsObject;
-            var count = Convert.ToInt32(items.Count);
+            var count = Convert.ToInt32(GetCom(itemsObject, "Count"));
             for (var index = 0; index < count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 object? itemObject = null;
                 try
                 {
-                    itemObject = items.Item(index);
+                    itemObject = CallCom(itemsObject, "Item", index);
                     if (itemObject is null) continue;
-                    dynamic item = itemObject;
-                    var path = Convert.ToString(item.Path);
-                    var name = Convert.ToString(item.Name) ?? string.Empty;
+                    var path = Convert.ToString(GetCom(itemObject, "Path"));
+                    var name = Convert.ToString(GetCom(itemObject, "Name")) ?? string.Empty;
                     if (!string.IsNullOrWhiteSpace(path) &&
                         NamesMatch(displayName, name, path) &&
                         Exists(path))
@@ -710,8 +740,30 @@ internal sealed class FileTargetResolver
         }
     }
 
+    // IDispatch supports these fixed Shell members directly. Avoid compiling a
+    // separate C# dynamic call site for every property on the first middle click.
+    private static object? GetCom(object? target, string name) =>
+        InvokeCom(target, name, BindingFlags.GetProperty, null);
+
+    private static object? CallCom(object? target, string name, params object[] args) =>
+        InvokeCom(target, name, BindingFlags.InvokeMethod, args);
+
+    private static object? InvokeCom(object? target, string name, BindingFlags flags, object[]? args)
+    {
+        if (target is null) return null;
+        try { return target.GetType().InvokeMember(name, flags, null, target, args); }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            throw;
+        }
+    }
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetParent(IntPtr window);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetShellWindow();
 
     [DllImport("oleacc.dll")]
     private static extern int AccessibleObjectFromWindow(

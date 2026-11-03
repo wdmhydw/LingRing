@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "gongsiorganizer.core": {
+        "type": "Project"
+      },
+      "gongsiorganizer.radialprototype": {
+        "type": "Project",
+        "dependencies": {
+          "GongSiOrganizer.Core": "[1.0.0, )"
+        }
+      }
+    },
+    "net8.0-windows7.0/win-x64": {}
+  }
+}

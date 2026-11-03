@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
@@ -26,6 +27,7 @@ internal sealed class RadialOverlayWindow : Window
     private bool _isDemo;
     private bool _folderNameDialogOpen;
     private MoveFeedbackWindow? _moveFeedback;
+    private bool _preparedForFirstShow;
 
     public RadialOverlayWindow()
     {
@@ -56,6 +58,30 @@ internal sealed class RadialOverlayWindow : Window
     public event Action<string>? DemoConfirmed;
     public event Action<string, bool>? CreateFolderRequested;
     public event Action? GuideRequested;
+
+    internal void PrepareForFirstShow(FolderCatalogResult snapshot)
+    {
+        // An input-priority click may beat the idle callback. Never replace an
+        // active session or change focus/visibility as part of optional warmup.
+        if (_preparedForFirstShow || _visibilityGeneration != 0 || IsVisible) return;
+        _preparedForFirstShow = true;
+        _ = new WindowInteropHelper(this).EnsureHandle();
+        var layout = NativeDisplay.CreatePlacement(NativeDisplay.GetPrimaryWorkAreaCenter(), false).Layout;
+        var size = new System.Windows.Size(layout.WindowBounds.Width, layout.WindowBounds.Height);
+        _control.Width = _surface.Width = size.Width;
+        _control.Height = _surface.Height = size.Height;
+        try
+        {
+            _control.Configure(layout, new RadialMenuSession(snapshot.Folders));
+            _surface.Measure(size);
+            _surface.Arrange(new Rect(size));
+            _surface.UpdateLayout();
+            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(size.Width), (int)Math.Ceiling(size.Height),
+                96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(_surface);
+        }
+        finally { _control.ReleaseSession(); }
+    }
 
     public void ShowMenu(
         NativeScreenPoint point,

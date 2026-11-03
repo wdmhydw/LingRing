@@ -1,5 +1,6 @@
 using System.IO;
 using GongSiOrganizer.Core;
+using GongSiOrganizer.RadialPrototype.Radial;
 
 namespace GongSiOrganizer.RadialPrototype.Services;
 
@@ -22,6 +23,17 @@ internal sealed class DirectoryTreeCache : IDisposable
 
     public FolderCatalogResult? Snapshot { get; private set; }
     public event EventHandler? Changed;
+
+    public async Task WarmStartPathAsync(string? startPath)
+    {
+        if (_disposed || string.IsNullOrWhiteSpace(startPath)) return;
+        var snapshot = CreateMenuSnapshot();
+        if (snapshot is null) return;
+        // Read only the configured path and its immediate children, sharing the
+        // bounded cache used by subsequent clicks. No sibling/volume scan.
+        using var session = new RadialMenuSession(snapshot.Folders);
+        await session.SelectStartPathAsync(startPath).ConfigureAwait(false);
+    }
 
     public FolderCatalogResult? CreateMenuSnapshot()
     {

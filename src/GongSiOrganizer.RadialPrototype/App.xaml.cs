@@ -185,6 +185,7 @@ public partial class App : System.Windows.Application
                 _mouseListener.MiddleButtonDown += OnMiddleButtonDown;
                 _mouseListener.LeftButtonDown += OnGlobalLeftButtonDown;
                 _mouseListener.Start();
+                _ = WarmUpFirstClickAsync();
             }
 
             if (!_options.IsDemoLaunch &&
@@ -315,6 +316,34 @@ public partial class App : System.Windows.Application
             {
             }
         }, DispatcherPriority.Input);
+    }
+
+    private async Task WarmUpFirstClickAsync()
+    {
+        var resolver = _targetResolver;
+        var cache = _directoryCache;
+        var overlay = _overlay;
+        var startPath = _options?.StartPath;
+        if (resolver is null || cache is null || overlay is null) return;
+        try
+        {
+            var resolverWarmup = resolver.WarmUpAsync();
+            var directoryWarmup = Task.Run(() => cache.WarmStartPathAsync(startPath));
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (Dispatcher.HasShutdownStarted || _clickCancellation is not null ||
+                    !ReferenceEquals(cache, _directoryCache)) return;
+                var snapshot = cache.CreateMenuSnapshot();
+                if (snapshot is not null) overlay.PrepareForFirstShow(_usageStore.Apply(snapshot));
+            }, DispatcherPriority.ApplicationIdle);
+            await Task.WhenAll(resolverWarmup, directoryWarmup);
+        }
+        catch (Exception exception)
+        {
+            // Warmup is optional. Normal clicks still resolve their own live
+            // target and prepare their own session if startup work was skipped.
+            Debug.WriteLine($"First-click warmup skipped: {exception.GetType().Name}");
+        }
     }
 
     private void OnGlobalLeftButtonDown(NativeScreenPoint point)
