@@ -7,7 +7,7 @@ namespace GongSiOrganizer.RadialPrototype.Services;
 internal sealed class ArchiveRootStore
 {
     private const int CurrentVersion = 4;
-    private const int InteractionGuideRevision = 3;
+    private const int InteractionGuideRevision = 4;
     private readonly object _gate = new();
     private readonly string _storagePath;
 

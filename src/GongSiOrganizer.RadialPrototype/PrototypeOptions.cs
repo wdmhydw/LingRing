@@ -27,6 +27,7 @@ internal sealed record PrototypeOptions(
     public string DemoPosition { get; init; } = "center";
     public string? DemoFeedback { get; init; }
     public bool DemoReducedMotion { get; init; }
+    public bool DemoDisplaySettings { get; init; }
     public bool IsDemoLaunch =>
         Demo ||
         DemoCorner ||
@@ -36,6 +37,7 @@ internal sealed record PrototypeOptions(
         DemoOnboarding ||
         DemoRootChoice ||
         DemoTrayMenu ||
+        DemoDisplaySettings ||
         DemoScroll ||
         DemoScrollTwice ||
         DemoHoverRing >= 0 ||
@@ -90,7 +92,7 @@ internal sealed record PrototypeOptions(
         {
             if (args[index].Equals("--demo-onboarding-page", StringComparison.OrdinalIgnoreCase) &&
                 int.TryParse(args[index + 1], out var parsedPage))
-                demoOnboardingPage = Math.Clamp(parsedPage, 0, 3);
+                demoOnboardingPage = Math.Clamp(parsedPage, 0, Presentation.OnboardingWindow.PageCount - 1);
         }
 
         var demoPosition = "center";
@@ -125,6 +127,7 @@ internal sealed record PrototypeOptions(
             capturePath,
             captureDelayMilliseconds)
         {
+            DemoDisplaySettings = args.Any(value => value.Equals("--demo-display-settings", StringComparison.OrdinalIgnoreCase)),
             DemoPosition = demoPosition,
             DemoFeedback = demoFeedback,
             DemoReducedMotion = args.Any(value => value.Equals("--demo-reduced-motion", StringComparison.OrdinalIgnoreCase))

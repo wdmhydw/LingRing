@@ -31,7 +31,7 @@ internal static class NativeDisplay
     private const int DwmColorNone = -2;
     private static readonly IntPtr HwndTopmost = new(-1);
 
-    public static OverlayPlacement CreatePlacement(NativeScreenPoint click, bool invalidTarget)
+    public static OverlayPlacement CreatePlacement(NativeScreenPoint click, bool invalidTarget, double ringWidth = RadialLayout.RingWidth)
     {
         var nativePoint = new NativePoint(click.X, click.Y);
         var monitor = MonitorFromPoint(nativePoint, MonitorDefaultToNearest);
@@ -48,7 +48,7 @@ internal static class NativeDisplay
         var layout = RadialLayout.Create(
             clickDip,
             new RadialRect(0, 0, workWidthDip, workHeightDip),
-            invalidTarget);
+            invalidTarget, ringWidth);
 
         var leftPx = info.Work.Left + (int)Math.Round(layout.WindowBounds.X * dpiScale);
         var topPx = info.Work.Top + (int)Math.Round(layout.WindowBounds.Y * dpiScale);

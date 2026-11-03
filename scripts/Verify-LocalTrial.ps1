@@ -25,7 +25,8 @@ try {
         '01 公司资料\01 年度项目\03 设计素材库\海报素材',
         '01 公司资料\01 年度项目\04 项目复盘与会议纪要\会议记录',
         '01 公司资料\01 年度项目\05 其他目录', '01 公司资料\02 品牌资料',
-        '02 业务资料','03 个人文件','04 资料备份','05 参考内容')) {
+        '02 业务资料','03 个人文件','04 资料备份','05 参考内容',
+        '06 客户反馈与修改记录','07 AI_Design_2026_Final','08 会议纪要与行动事项','09 合同归档')) {
         New-Item -ItemType Directory -Path (Join-Path $catalog $folder) -Force | Out-Null
     }
     foreach ($folder in @('01 公司资料\年度项目\推广方案\最终交付', '01 公司资料\年度项目\商务合同', '02 业务资料', '03 个人文件')) {
@@ -51,6 +52,9 @@ try {
         @('onboarding-reading','--demo-onboarding --demo-onboarding-page 1',500),
         @('onboarding','--demo-onboarding --demo-onboarding-page 1',2250),
         @('onboarding-entered','--demo-onboarding --demo-onboarding-page 1',3600),
+        @('onboarding-display','--demo-onboarding --demo-onboarding-page 3',800),
+        @('onboarding-root','--demo-onboarding --demo-onboarding-page 4',800),
+        @('display-settings','--demo-display-settings',800),
         @('scroll-fast-early','--demo --demo-hover-ring 0 --demo-scroll-twice',45),
         @('scroll-fast-next','--demo --demo-hover-ring 0 --demo-scroll-twice',270),
         @('scroll-fast-corner','--demo-corner --demo-hover-ring 0 --demo-scroll-twice',270),
@@ -65,6 +69,20 @@ try {
         $captures += $capture
         Write-Host "Native preview passed: $($preview[0])"
     }
+    foreach ($variant in @(@('original-four',4,$false,''), @('original-eight',8,$false,''),
+        @('arc-two',2,$true,''), @('arc-six',6,$true,''), @('arc-eight-corner',8,$true,'--demo-corner'))) {
+        $settingsPath = Join-Path $env:LINGRING_DATA_ROOT 'wheel-settings.json'
+        @{ Version = 1; Preferences = @{ MaximumItems = $variant[1]; CurvedLabels = $variant[2] } } |
+            ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding utf8
+        $capture = Join-Path $captureRoot ($variant[0] + '.png')
+        $arguments = '--root "' + $catalog + '" --no-listener --demo --demo-hover-ring 2 ' + $variant[3] +
+            ' --capture "' + $capture + '" --capture-delay 850'
+        Invoke-VerificationProcess -Executable $installedExe -Arguments $arguments
+        if (!(Test-Path -LiteralPath $capture)) { throw "Display preference preview failed: $($variant[0])" }
+        $captures += $capture
+        Write-Host "Native display preference passed: $($variant[0])"
+    }
+    Remove-Item -LiteralPath $settingsPath
     $captures += & (Join-Path $PSScriptRoot 'Verify-RadialLayouts.ps1') -Executable $installedExe `
         -OutputDirectory (Join-Path $captureRoot 'layouts') -WorkDirectory (Join-Path $verifyRoot 'layout-review')
     $feedbackRoot = Join-Path $captureRoot 'feedback'

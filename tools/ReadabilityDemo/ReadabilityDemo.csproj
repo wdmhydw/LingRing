@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>LingRing.ReadabilityDemo</AssemblyName>
+    <Product>灵环 · 目录阅读实验室</Product>
+    <ApplicationIcon>..\..\src\GongSiOrganizer.RadialPrototype\Assets\GongSiOrganizer.ico</ApplicationIcon>
+    <Version>0.6.5-readability-demo</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GongSiOrganizer.RadialPrototype\GongSiOrganizer.RadialPrototype.csproj" />
+  </ItemGroup>
+</Project>

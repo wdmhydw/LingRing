@@ -36,6 +36,7 @@ internal sealed class TrayMenuWindow : Window
         Action changeRoot,
         Action resetUsage,
         Action showOnboarding,
+        Action showDisplaySettings,
         Action<bool> setPaused,
         Action exit)
     {
@@ -101,6 +102,7 @@ internal sealed class TrayMenuWindow : Window
         rootCard.Child = rootGrid;
         body.Children.Add(rootCard);
 
+        body.Children.Add(CreateActionRow("Aa", "轮盘显示", "沿弧 / 原版排字 · 每圈 2–8 项", () => InvokeAndHide(showDisplaySettings)));
         body.Children.Add(CreateActionRow("?", "新手引导", "重新查看操作方法", () => InvokeAndHide(showOnboarding)));
         body.Children.Add(CreateActionRow("◎", "安全演示", "在鼠标位置预览轮盘", () => InvokeAndHide(showDemo)));
         body.Children.Add(CreateActionRow("↻", "刷新目录缓存", "重新读取磁盘和文件夹层级", () => InvokeAndHide(refresh)));

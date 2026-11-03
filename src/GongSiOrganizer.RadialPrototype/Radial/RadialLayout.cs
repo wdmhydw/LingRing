@@ -51,6 +51,7 @@ public sealed record RadialLayoutPlan(
 public static class RadialLayout
 {
     public const int SlotsPerRing = 4;
+    public const int MaximumSlotsPerRing = 8;
     public const double DefaultCenterRadius = 50;
     public const double InvalidCenterRadius = 50;
     public const double RingWidth = 60;
@@ -60,13 +61,15 @@ public static class RadialLayout
     public static RadialLayoutPlan Create(
         RadialPoint clickPoint,
         RadialRect workArea,
-        bool invalidTarget = false)
+        bool invalidTarget = false,
+        double ringWidth = RingWidth)
     {
         var room = Math.Min(Math.Max(clickPoint.X - workArea.Left, workArea.Right - clickPoint.X),
             Math.Max(clickPoint.Y - workArea.Top, workArea.Bottom - clickPoint.Y)) - OuterMargin;
         var rings = invalidTarget
             ? Array.Empty<RadialRing>()
-            : CreateRings(Math.Clamp(room, 126, 258), clickPoint, workArea);
+            : CreateRings(Math.Clamp(room, 126, DefaultCenterRadius + 8 +
+                3 * Math.Clamp(ringWidth, 60, 104) + 2 * RingGap), clickPoint, workArea);
         var centerRadius = invalidTarget ? InvalidCenterRadius : DefaultCenterRadius;
         var idealBounds = new RadialRect(clickPoint.X - centerRadius - OuterMargin,
             clickPoint.Y - centerRadius - OuterMargin, (centerRadius + OuterMargin) * 2,
@@ -135,7 +138,7 @@ public static class RadialLayout
             2 => thirdRingSlots,
             _ => 0
         };
-        slotCount = Math.Clamp(slotCount, 0, SlotsPerRing);
+        slotCount = Math.Clamp(slotCount, 0, MaximumSlotsPerRing);
         if (slotCount == 0)
             return RadialHit.None;
 
@@ -146,13 +149,13 @@ public static class RadialLayout
             return RadialHit.None;
 
         var slotSweep = SlotSweep(activeRing, slotCount);
-        var slot = Math.Min(SlotsPerRing - 1, (int)Math.Floor(relative / slotSweep));
+        var slot = Math.Min(slotCount - 1, (int)Math.Floor(relative / slotSweep));
         if (slot >= slotCount) return RadialHit.None;
         return new RadialHit(ringIndex, slot, false);
     }
 
     internal static double SlotSweep(RadialRing ring, int visibleSlots) =>
-        ring.SweepAngle / Math.Clamp(visibleSlots, 1, SlotsPerRing);
+        ring.SweepAngle / Math.Clamp(visibleSlots, 1, MaximumSlotsPerRing);
 
     internal static double SlotStart(RadialRing ring, int visibleSlots) =>
         ring.SweepAngle >= 359.999 ? -90 - SlotSweep(ring, visibleSlots) / 2 : ring.StartAngle;

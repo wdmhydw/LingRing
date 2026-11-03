@@ -25,6 +25,9 @@ public partial class App : System.Windows.Application
     private readonly SubfolderCreationService _subfolderCreationService = new();
     private readonly FolderUsageStore _usageStore = FolderUsageStore.CreateDefault();
     private readonly ArchiveRootStore _archiveRootStore = ArchiveRootStore.CreateDefault();
+    private readonly RadialPreferencesStore _radialPreferencesStore = RadialPreferencesStore.CreateDefault();
+    private RadialPreferences _radialPreferences = new();
+    private bool _displaySettingsOpen;
     private bool _paused;
     private bool _moveInProgress;
     private bool _folderCreationInProgress;
@@ -108,6 +111,8 @@ public partial class App : System.Windows.Application
             }
 
             _overlay = new RadialOverlayWindow();
+            _radialPreferences = _radialPreferencesStore.Load();
+            _overlay.SetPreferences(_radialPreferences);
             // Automated captures must keep their scripted scene even when the
             // desktop pointer happens to be over the newly opened wheel.
             if (!string.IsNullOrWhiteSpace(_options.CapturePath))
@@ -124,10 +129,25 @@ public partial class App : System.Windows.Application
                 ChangeArchiveRoot,
                 ResetUsageRanking,
                 ShowOnboarding,
+                ShowDisplaySettings,
                 paused => _paused = paused,
                 RequestShutdown,
                 GetSelectionPath(_options));
             CaptureTrace("tray created");
+
+            if (_options.DemoDisplaySettings)
+            {
+                var settings = new RadialSettingsWindow(_radialPreferences, _ => true);
+                settings.Show();
+                if (!string.IsNullOrWhiteSpace(_options.CapturePath))
+                {
+                    await Task.Delay(_options.CaptureDelayMilliseconds);
+                    settings.SaveSnapshot(_options.CapturePath);
+                    settings.Close();
+                    Shutdown();
+                }
+                return;
+            }
 
             if (_options.DemoTrayMenu)
             {
@@ -185,6 +205,7 @@ public partial class App : System.Windows.Application
                 _mouseListener.MiddleButtonDown += OnMiddleButtonDown;
                 _mouseListener.LeftButtonDown += OnGlobalLeftButtonDown;
                 _mouseListener.Start();
+                _ = WarmUpFirstClickAsync();
             }
 
             if (!_options.IsDemoLaunch &&
@@ -287,7 +308,7 @@ public partial class App : System.Windows.Application
 
     private void OnMiddleButtonDown(NativeHitContext hitContext)
     {
-        if (_paused || _folderCreationInProgress || _rootChangeInProgress || _onboardingOpen ||
+        if (_paused || _folderCreationInProgress || _rootChangeInProgress || _onboardingOpen || _displaySettingsOpen ||
             _targetResolver is null || _overlay is null) return;
         if (!ShellMiddleClickScope.IsSupported(hitContext)) return;
         _ = Dispatcher.InvokeAsync(async () =>
@@ -317,6 +338,34 @@ public partial class App : System.Windows.Application
         }, DispatcherPriority.Input);
     }
 
+    private async Task WarmUpFirstClickAsync()
+    {
+        var resolver = _targetResolver;
+        var cache = _directoryCache;
+        var overlay = _overlay;
+        var startPath = _options?.StartPath;
+        if (resolver is null || cache is null || overlay is null) return;
+        try
+        {
+            var resolverWarmup = resolver.WarmUpAsync();
+            var directoryWarmup = Task.Run(() => cache.WarmStartPathAsync(startPath));
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (Dispatcher.HasShutdownStarted || _clickCancellation is not null ||
+                    !ReferenceEquals(cache, _directoryCache)) return;
+                var snapshot = cache.CreateMenuSnapshot();
+                if (snapshot is not null) overlay.PrepareForFirstShow(_usageStore.Apply(snapshot));
+            }, DispatcherPriority.ApplicationIdle);
+            await Task.WhenAll(resolverWarmup, directoryWarmup);
+        }
+        catch (Exception exception)
+        {
+            // Warmup is optional. Normal clicks still resolve their own live
+            // target and prepare their own session if startup work was skipped.
+            Debug.WriteLine($"First-click warmup skipped: {exception.GetType().Name}");
+        }
+    }
+
     private void OnGlobalLeftButtonDown(NativeScreenPoint point)
     {
         var overlay = _overlay;
@@ -327,7 +376,7 @@ public partial class App : System.Windows.Application
 
     private async void ShowDemoAtCursor()
     {
-        if (_folderCreationInProgress || _rootChangeInProgress || _onboardingOpen) return;
+        if (_folderCreationInProgress || _rootChangeInProgress || _onboardingOpen || _displaySettingsOpen) return;
         try
         {
             await ShowDemo(NativeDisplay.GetCursor());
@@ -800,7 +849,7 @@ public partial class App : System.Windows.Application
                 GetSelectionPath(options),
                 ChooseArchiveRootFromOnboardingAsync,
                 rootSelectionRequired: true);
-            if (startAtRootPage) guide.ShowPageForPreview(3);
+            if (startAtRootPage) guide.ShowPageForPreview(OnboardingWindow.PageCount - 1);
             _ = guide.ShowDialog();
 
             var activeOptions = _options;
@@ -814,6 +863,25 @@ public partial class App : System.Windows.Application
         {
             _onboardingOpen = false;
         }
+    }
+
+    private void ShowDisplaySettings()
+    {
+        if (_displaySettingsOpen || _onboardingOpen || _moveInProgress || _folderCreationInProgress) return;
+        _displaySettingsOpen = true;
+        _clickCancellation?.Cancel();
+        _overlay?.HideOverlay();
+        try
+        {
+            new RadialSettingsWindow(_radialPreferences, preferences =>
+            {
+                if (!_radialPreferencesStore.Save(preferences)) return false;
+                _radialPreferences = preferences;
+                _overlay?.SetPreferences(preferences);
+                return true;
+            }).ShowDialog();
+        }
+        finally { _displaySettingsOpen = false; }
     }
 
     private void ShowOnboarding()

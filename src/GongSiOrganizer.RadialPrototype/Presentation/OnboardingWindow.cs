@@ -7,6 +7,8 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using GongSiOrganizer.Core;
+using GongSiOrganizer.RadialPrototype.Radial;
+using GongSiOrganizer.RadialPrototype.Services;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
@@ -68,11 +70,18 @@ internal sealed class OnboardingWindow : Window
             ["左键点击名称扇区，直接移动到该目录", "蓝弧用于进入，点击蓝弧不会移动文件", "Ctrl + 左键新建文件夹；滚轮切换同级", "点击轮盘外空白或按 Esc 取消"],
             GuideIllustration.Actions),
         new(
+            "沿着圆环，读清目录名称",
+            "默认沿弧排字，每圈最多 4 项。",
+            ["文字沿圆环排列，长名称按空间换行", "托盘 → 轮盘显示，可选择原版排字", "每圈可选 2–8 项，保存后自动记住", "更多目录用滚轮切换；停留可看全名"],
+            GuideIllustration.Display),
+        new(
             "选好轮盘起点，马上开始",
             "“此电脑”是最高层，也可以从常用文件夹直接展开。",
             ["最高层可在不同本地磁盘间归档", "向下选择的文件夹只是默认起点", "右键可逐级返回磁盘和“此电脑”"],
             GuideIllustration.Tray)
     ];
+
+    internal static int PageCount => Pages.Length;
 
     public OnboardingWindow(
         string rootPath,
@@ -534,6 +543,7 @@ internal sealed class OnboardingWindow : Window
             GuideIllustration.Wheel => CreateWheelIllustration(),
             GuideIllustration.Navigation => new BlueArcGuide(),
             GuideIllustration.Actions => CreateActionsIllustration(),
+            GuideIllustration.Display => CreateDisplayIllustration(),
             _ => CreateTrayIllustration()
         };
     }
@@ -581,6 +591,28 @@ internal sealed class OnboardingWindow : Window
         Canvas.SetTop(center, 96);
         canvas.Children.Add(center);
         return canvas;
+    }
+
+    private static FrameworkElement CreateDisplayIllustration()
+    {
+        var options = new RadialPreferences().DisplayOptions;
+        var layout = RadialLayout.Create(new RadialPoint(360, 360), new RadialRect(0, 0, 720, 720), ringWidth: options.RingWidth);
+        var names = new[] { "市场推广方案与产品介绍", "客户沟通与需求确认", "设计方案与完整源文件", "AI_Design_2026_Final" };
+        var roots = names.Select((name, i) => new FolderMenuNode(name, $"sample{i}", [])).ToArray();
+        var control = new RadialMenuControl
+        {
+            Width = layout.WindowBounds.Width, Height = layout.WindowBounds.Height,
+            DisplayOptions = options, IsSelectionDemo = true, IsHitTestVisible = false
+        };
+        control.Configure(layout, new RadialMenuSession(roots, options.Capacities(layout)));
+        control.Unloaded += (_, _) => control.ReleaseSession();
+        // Crop unused outer rings so the real four-item renderer stays legible in the guide.
+        var diameter = 2 * (layout.Rings[0].OuterRadius + 8);
+        var canvas = new Canvas { Width = diameter, Height = diameter, ClipToBounds = true };
+        Canvas.SetLeft(control, diameter / 2 - layout.LocalCenter.X);
+        Canvas.SetTop(control, diameter / 2 - layout.LocalCenter.Y);
+        canvas.Children.Add(control);
+        return new Viewbox { Child = canvas, Margin = new Thickness(0, 28, 0, 28) };
     }
 
     private static FrameworkElement CreateActionsIllustration()
@@ -832,6 +864,7 @@ internal sealed class OnboardingWindow : Window
         Wheel,
         Navigation,
         Actions,
+        Display,
         Tray
     }
 }

@@ -17,6 +17,7 @@ internal sealed class TrayIconService : IDisposable
         Action changeRoot,
         Action resetUsage,
         Action showOnboarding,
+        Action showDisplaySettings,
         Action<bool> setPaused,
         Action exit,
         string initialRoot)
@@ -29,6 +30,7 @@ internal sealed class TrayIconService : IDisposable
             changeRoot,
             resetUsage,
             showOnboarding,
+            showDisplaySettings,
             setPaused,
             exit);
         _icon = new Forms.NotifyIcon
