@@ -1,6 +1,6 @@
 # v0.7.0 发行验收
 
-日期：2026-11-03。用户明确授权合并目录阅读实验、设定正式默认、补充引导并打包发布上传。本阶段为 `runtime_verified`，上传与远端回读进行中。
+日期：2026-11-03。用户明确授权合并目录阅读实验、设定正式默认、补充引导并打包发布上传。状态 `RELEASE_READY`；GitHub 最新正式版和私人备份均已发布。
 
 ## 源码与构建
 
@@ -30,3 +30,13 @@
 | LingRing-0.7.0-windows-x64-portable.zip | 66863390 | `6a3e7b0bf6d2b17f941201b93a5595e91fd1198f0d35f20efc23e45adf62beb3` |
 | release-manifest.json | 1317 | `35e6a623a9c04316f9e1c21f37e41a0974a4481976ed35cbe4dce84054fe4286` |
 | SHA256SUMS.txt | 300 | `6afdc0a4ca0dede009fd62d67eefb1f5c4c5e8571a586cd5338e68b9d2fb7e8f` |
+
+## 发布与清理
+
+[GitHub v0.7.0](https://github.com/wdmhydw/LingRing/releases/tag/v0.7.0) 为最新正式版，非草稿、非预发布。私人备份保持 private。两端各四个附件均实际下载回读，字节数与 SHA-256 全部一致；`github-readback.json` 与 `private-readback.json` 为归档凭据。
+
+`v0.7.0` 指向实际构建的 `42cb33ec7d5f923893ddb307503abb46578587b6`；后续文档提交单独同步到 main，不重建或替换发行物。
+
+正式归档保留包体、便携目录、来源、清单、日志、测试记录、50 项原生预览、双端下载记录与发布/清理报告。`release-manifest.json` 为公开清单，`archive-manifest.json` 为内部完整索引。
+
+Clear-ReleaseStaging 已将 `artifacts/publish-0.7.0` 移入 Windows 回收站，`artifacts/dev-0.7.0` 未生成，干净构建工作树及隔离运行目录已移除。回收站保留恢复能力，空间不计为已释放。历史 Release/tag、本地归档、用户设置及已安装程序均保留。
