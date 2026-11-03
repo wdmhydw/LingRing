@@ -152,12 +152,7 @@ public sealed class ReadabilityDemoTests
         var label = RadialArcLabel.Create(text, shape,
             new RadialLabelArc(center, 220, 302, middle - sweep / 2, middle + sweep / 2), 1);
         Assert.False(label.IsTruncated);
-        if (label.Direction == RadialLabelDirection.Horizontal)
-        {
-            Assert.All(HeadDirections(label.Drawing), head => { Assert.Equal(0, head.X, 6); Assert.Equal(-1, head.Y, 6); });
-            Assert.All(label.InkBoxes!, box => Assert.Equal(IntersectionDetail.FullyContains, shape.FillContainsWithDetail(box)));
-            return;
-        }
+        Assert.Equal(RadialLabelDirection.Arc, label.Direction);
         var glyphs = Assert.IsAssignableFrom<IReadOnlyList<ArcLabelGlyph>>(label.ArcGlyphs);
         Assert.Equal(text, string.Concat(glyphs.Select(glyph => glyph.Text)));
         Assert.All(glyphs, glyph => Assert.True(Assert.Single(HeadDirections(glyph.Drawing)).Y < 0));
@@ -172,8 +167,11 @@ public sealed class ReadabilityDemoTests
         foreach (var column in columns)
         {
             var letters = column.ToArray();
-            for (var i = 1; i < letters.Length; i++) Assert.True(upper && Math.Cos(middle * Math.PI / 180) < 0
-                ? letters[i].Anchor.Y < letters[i - 1].Anchor.Y : letters[i].Anchor.Y > letters[i - 1].Anchor.Y);
+            var crown = sweep < 180 && Math.Abs(Math.Cos(middle * Math.PI / 180)) < .000001;
+            for (var i = 1; i < letters.Length; i++) Assert.True(crown
+                ? letters[i].Anchor.X > letters[i - 1].Anchor.X
+                : upper && Math.Cos(middle * Math.PI / 180) < 0
+                    ? letters[i].Anchor.Y < letters[i - 1].Anchor.Y : letters[i].Anchor.Y > letters[i - 1].Anchor.Y);
         }
         for (var i = 0; i < glyphs.Count; i++)
         for (var j = i + 1; j < glyphs.Count; j++)
@@ -202,15 +200,20 @@ public sealed class ReadabilityDemoTests
     [Theory]
     [InlineData(-90)]
     [InlineData(90)]
-    public void CrownRowsKeepYearsTogetherInNormalHorizontalText(double middle) => OnSta(() =>
+    public void CrownRowsKeepYearsTogetherWhileIndividualDigitsFollowTheArc(double middle) => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
-        var label = RadialArcLabel.Create("2026年度归档", RadialGeometry.Wedge(center, 58, 140, middle - 29, middle + 29),
+        const string text = "项目年度资料2026归档";
+        var label = RadialArcLabel.Create(text, RadialGeometry.Wedge(center, 58, 140, middle - 29, middle + 29),
             new RadialLabelArc(center, 58, 140, middle - 29, middle + 29), 1);
         Assert.False(label.IsTruncated);
-        Assert.Equal(RadialLabelDirection.Horizontal, label.Direction);
-        Assert.Contains(DrawnText(label.Drawing), run => run.Contains("2026"));
-        Assert.All(HeadDirections(label.Drawing), head => { Assert.Equal(0, head.X, 6); Assert.Equal(-1, head.Y, 6); });
+        var glyphs = label.ArcGlyphs!;
+        Assert.Equal(text, string.Concat(glyphs.Select(glyph => glyph.Text)));
+        var digits = glyphs.Where(glyph => char.IsDigit(glyph.Text[0])).ToArray();
+        Assert.Equal("2026", string.Concat(digits.Select(glyph => glyph.Text)));
+        Assert.Single(digits.Select(glyph => glyph.Column).Distinct());
+        Assert.True(digits.Select(glyph => glyph.Rotation).Distinct().Count() > 1);
+        Assert.All(HeadDirections(label.Drawing), head => Assert.True(head.Y < 0));
     });
 
     [Theory]
@@ -348,17 +351,38 @@ public sealed class ReadabilityDemoTests
     [Theory]
     [InlineData(-90, "AI_Design_2026_FinalV2")]
     [InlineData(90, "AI_Design_2026_FinalV2")]
+    [InlineData(270, "AI_Design_2026_FinalV2")]
+    [InlineData(450, "AI_Design_2026_FinalV2")]
     [InlineData(-90, "市场推广方案与产品介绍_正式发布")]
     [InlineData(90, "市场推广方案与产品介绍_正式发布")]
-    public void TopAndBottomUseNormalHorizontalRowsFittedToTheirWidth(double middle, string text) => OnSta(() =>
+    public void TopAndBottomReadLeftToRightAlongConcentricArcs(double middle, string text) => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
         var shape = RadialGeometry.Wedge(center, 220, 302, middle - 29, middle + 29);
         var label = RadialArcLabel.Create(text, shape, new RadialLabelArc(center, 220, 302, middle - 29, middle + 29), 1);
-        Assert.Equal(RadialLabelDirection.Horizontal, label.Direction);
+        Assert.Equal(RadialLabelDirection.Arc, label.Direction);
         Assert.False(label.IsTruncated);
         Assert.Equal(RadialExperimentalLabel.TextElements(text).Count, label.VisibleCharacters);
-        Assert.All(HeadDirections(label.Drawing), head => { Assert.Equal(0, head.X, 6); Assert.Equal(-1, head.Y, 6); });
+        var glyphs = Assert.IsAssignableFrom<IReadOnlyList<ArcLabelGlyph>>(label.ArcGlyphs);
+        Assert.Equal(text, string.Concat(glyphs.Select(glyph => glyph.Text)));
+        Assert.Equal(RadialExperimentalLabel.TextElements(text).Count, glyphs.Count);
+        foreach (var row in glyphs.GroupBy(glyph => glyph.Column))
+        {
+            var letters = row.ToArray();
+            double Radius(ArcLabelGlyph glyph) => (glyph.Anchor - new System.Windows.Point(center.X, center.Y)).Length;
+            Assert.All(letters, glyph => Assert.Equal(Radius(letters[0]), Radius(glyph), 6));
+            for (var i = 0; i < letters.Length; i++)
+            {
+                if (i > 0) Assert.True(letters[i].Anchor.X > letters[i - 1].Anchor.X);
+                var radial = letters[i].Anchor - new System.Windows.Point(center.X, center.Y); radial.Normalize();
+                var head = Assert.Single(HeadDirections(letters[i].Drawing));
+                Assert.True(head.Y < 0);
+                Assert.True(Vector.Multiply(head, Math.Sin(middle * Math.PI / 180) < 0 ? radial : -radial) > .999);
+            }
+            // The baselines really bow with the ring instead of merely
+            // rotating a flat line of text at its center.
+            Assert.True(letters.Max(glyph => glyph.Anchor.Y) - letters.Min(glyph => glyph.Anchor.Y) > 3);
+        }
         Assert.True(label.Bounds.Width > 100);
         Assert.All(label.InkBoxes!, box => Assert.Equal(IntersectionDetail.FullyContains, shape.FillContainsWithDetail(box)));
     });
@@ -376,17 +400,13 @@ public sealed class ReadabilityDemoTests
         var narrow = At(58); var wide = At(220);
         Assert.False(wide.IsTruncated);
         Assert.True(wide.Bounds.Width > narrow.Bounds.Width * 1.5);
-        Assert.True(wide.InkBoxes!.Count <= narrow.InkBoxes!.Count);
+        Assert.True(wide.ArcGlyphs!.Select(glyph => glyph.Column).Distinct().Count() <= narrow.ArcGlyphs!.Select(glyph => glyph.Column).Distinct().Count());
         Assert.True(wide.VisibleCharacters >= narrow.VisibleCharacters);
+        var rows = wide.ArcGlyphs!.GroupBy(glyph => glyph.Column).ToArray();
+        Assert.True(rows.Length >= 2);
+        var radii = rows.Select(row => (row.First().Anchor - new System.Windows.Point(center.X, center.Y)).Length).ToArray();
+        Assert.Equal(middle < 0 ? radii.OrderDescending() : radii.Order(), radii);
     });
-
-    private static IEnumerable<string> DrawnText(Drawing drawing)
-    {
-        if (drawing is GlyphRunDrawing glyph) yield return new string(glyph.GlyphRun.Characters.ToArray());
-        else if (drawing is DrawingGroup group)
-            foreach (var child in group.Children)
-            foreach (var text in DrawnText(child)) yield return text;
-    }
 
     private static IReadOnlyList<Vector> HeadDirections(Drawing drawing)
     {

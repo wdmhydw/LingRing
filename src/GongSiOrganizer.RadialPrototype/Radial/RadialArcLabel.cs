@@ -14,7 +14,8 @@ internal static class RadialArcLabel
     private const double Gap = 1.25;
     private const double ColumnGap = RadialTypography.FontSize + 3.5;
     private const double ToRadians = Math.PI / 180;
-    private sealed record Unit(string Text, FormattedText TextLayout, Rect Ink, double Rotation, int Characters)
+    private sealed record Unit(string Text, FormattedText TextLayout, Rect Ink, double Rotation, int Characters,
+        bool CanBreakBefore = true)
     {
         // Keep a small orientation-independent margin inside rounded cells.
         public double Radius => Math.Sqrt(Ink.Width * Ink.Width + Ink.Height * Ink.Height) / 2 + 1;
@@ -30,17 +31,19 @@ internal static class RadialArcLabel
         var averageRadius = (space.Inner + space.Outer) / 2;
         var middleAngle = (space.Start + space.End) / 2;
         var localSector = space.End - space.Start < 180;
-        if (localSector && branches.Count > 1)
+        var crown = localSector && branches.Count > 1;
+        var topCrown = crown && Math.Sin(middleAngle * ToRadians) < 0;
+        if (crown)
         {
-            // Top and bottom are wide, shallow cells. Use their real width for
-            // normal horizontal text, including Chinese, Latin and numbers.
-            var anchor = RadialGeometry.Polar(space.Center, averageRadius, middleAngle);
-            var content = RadialCellContent.Fit(shape, anchor, space.Center);
-            return RadialExperimentalLabel.Create(name, shape, content.Center, RadialLabelDirection.Horizontal, dpi);
+            // Keep one continuous curved baseline across the top/bottom pole.
+            // Stay in its half-circle so left-to-right text never turns upside down.
+            var pole = branches[0].End;
+            branches = [(Math.Max(space.Start, pole - 89.9), Math.Min(space.End, pole + 89.9))];
         }
         // Choose a rule for the complete cell, not per glyph as it nears an
         // axis. The upper sides read clockwise, with character heads outward.
         var upper = localSector && Math.Sin(middleAngle * ToRadians) < -.000001;
+        var horizontalFlow = upper || crown;
         var formats = new Dictionary<string, FormattedText>();
         FormattedText Format(string text)
         {
@@ -61,13 +64,27 @@ internal static class RadialArcLabel
             Math.Min(space.Outer - space.Inner - 14,
                 averageRadius * branches.Min(branch => Math.Min(110, branch.End - branch.Start)) * ToRadians - 16));
         var units = new List<Unit>();
+        if (crown)
+        {
+            var elements = RadialExperimentalLabel.TextElements(name);
+            for (var index = 0; index < elements.Count;)
+            {
+                var end = index;
+                while (end < elements.Count && Rune.IsDigit(Rune.GetRuneAt(elements[end], 0))) end++;
+                if (end == index) end++;
+                var keepNumber = end - index is > 1 and <= 6;
+                for (var i = index; i < end; i++)
+                    units.Add(MakeUnit(elements[i], false, 1) with { CanBreakBefore = !keepNumber || i == index });
+                index = end;
+            }
+        }
         var run = "";
         void FlushRun()
         {
             if (run.Length == 0) return;
             units.Add(MakeUnit(run, !upper, RadialExperimentalLabel.TextElements(run).Count)); run = "";
         }
-        foreach (var element in RadialExperimentalLabel.TextElements(name))
+        foreach (var element in crown ? [] : RadialExperimentalLabel.TextElements(name))
         {
             if (IsSideways(element))
             {
@@ -87,7 +104,7 @@ internal static class RadialArcLabel
             }
         }
         FlushRun();
-        var ellipsis = MakeUnit(upper ? "…" : "⋮", false, 0);
+        var ellipsis = MakeUnit(horizontalFlow ? "…" : "⋮", false, 0);
         var maxColumns = Math.Clamp((int)((space.Outer - space.Inner - 10) / ColumnGap), 1, 4);
         List<Placement> best = [];
         var bestCharacters = 0;
@@ -101,13 +118,14 @@ internal static class RadialArcLabel
                 return branches.Select(branch =>
                 {
                     var middle = (branch.Start + branch.End) / 2;
-                    var sweep = Math.Min(110, branch.End - branch.Start);
-                    var direction = upper || Math.Cos(middle * ToRadians) >= 0 ? 1 : -1;
+                    var sweep = crown ? branch.End - branch.Start : Math.Min(110, branch.End - branch.Start);
+                    var direction = crown ? (topCrown ? 1 : -1) : upper || Math.Cos(middle * ToRadians) >= 0 ? 1 : -1;
                     return new Column(radius, middle - direction * sweep / 2, sweep, direction,
-                        space.Center.X + radius * Math.Cos(middle * ToRadians), upper);
+                        space.Center.X + radius * Math.Cos(middle * ToRadians), horizontalFlow);
                 });
             });
-            var columns = (upper ? tracks.OrderByDescending(column => column.Radius) : tracks.OrderBy(column => column.X)).ToArray();
+            var columns = (crown && !topCrown ? tracks.OrderBy(column => column.Radius)
+                : upper ? tracks.OrderByDescending(column => column.Radius) : tracks.OrderBy(column => column.X)).ToArray();
 
             (List<Placement> Placed, int Consumed) Place(IReadOnlyList<Unit> source) => Pack(source, columns, shape, space.Center);
             var (placed, consumed) = Place(units);
@@ -119,7 +137,10 @@ internal static class RadialArcLabel
                 for (var keep = Math.Min(units.Count - 1, consumed); keep >= 0; keep--)
                 {
                     var head = (int)Math.Ceiling(keep * .6);
-                    var clipped = units.Take(head).Concat([ellipsis]).Concat(units.Skip(units.Count - (keep - head))).ToArray();
+                    var tailStart = units.Count - (keep - head);
+                    while (head > 0 && !units[head].CanBreakBefore) head--;
+                    while (tailStart < units.Count && !units[tailStart].CanBreakBefore) tailStart++;
+                    var clipped = units.Take(head).Concat([ellipsis]).Concat(units.Skip(tailStart)).ToArray();
                     var attempt = Place(clipped);
                     if (attempt.Consumed != clipped.Length) continue;
                     placed = attempt.Placed; break;
@@ -198,6 +219,8 @@ internal static class RadialArcLabel
             // when rounded ends or another column leave insufficient room.
             while (count > 0)
             {
+                if (used + count < units.Count && !units[used + count].CanBreakBefore)
+                { extent -= Advance(units[used + --count]); continue; }
                 var batch = new List<Placement>();
                 var cursor = (column.Sweep * ToRadians - extent) / 2;
                 for (var index = 0; index < count; index++)
@@ -209,7 +232,7 @@ internal static class RadialArcLabel
                     var anchor = RadialGeometry.Polar(center, column.Radius, angle);
                     // Upper rows use their horizontal baseline along the arc;
                     // lower columns keep their vertical head-to-bottom flow.
-                    var columnRotation = Math.IEEERemainder(angle + (column.HorizontalFlow ? 90 : column.Direction < 0 ? 180 : 0), 360);
+                    var columnRotation = Math.IEEERemainder(angle + (column.HorizontalFlow ? column.Direction * 90 : column.Direction < 0 ? 180 : 0), 360);
                     var rotation = columnRotation + unit.Rotation;
                     var envelope = new EllipseGeometry(anchor, unit.Radius, unit.Radius);
                     var box = InkBox(unit, anchor, rotation);
