@@ -16,13 +16,13 @@ internal static class RadialArcLabel
     private const double ToRadians = Math.PI / 180;
     private sealed record Unit(string Text, FormattedText TextLayout, Rect Ink, double Rotation, int Characters)
     {
-        // An orientation-independent envelope also protects text while its
-        // anchor rotates with the menu and its screen orientation stays fixed.
+        // Keep a small orientation-independent margin inside rounded cells.
         public double Radius => Math.Sqrt(Ink.Width * Ink.Width + Ink.Height * Ink.Height) / 2 + 1;
         public double ReadingHeight => Rotation == 0 ? Math.Max(RadialTypography.FontSize, Ink.Height) : Ink.Width;
+        public double ReadingWidth => Rotation == 0 ? Ink.Width : Ink.Height;
     }
     private sealed record Column(double Radius, double Top, double Sweep, int Direction, double X);
-    private sealed record Placement(Unit Unit, int Column, double ColumnX, Point Anchor, Geometry Box);
+    private sealed record Placement(Unit Unit, int Column, double ColumnX, Point Anchor, double Rotation, Geometry Box);
 
     internal static ExperimentalLabel Create(string name, Geometry shape, RadialLabelArc space, double dpi)
     {
@@ -131,13 +131,13 @@ internal static class RadialArcLabel
                 var glyph = new DrawingGroup();
                 using (var glyphDc = glyph.Open())
                 {
-                    glyphDc.PushTransform(new RotateTransform(unit.Rotation, item.Anchor.X, item.Anchor.Y));
+                    glyphDc.PushTransform(new RotateTransform(item.Rotation, item.Anchor.X, item.Anchor.Y));
                     glyphDc.DrawText(unit.TextLayout, new Point(item.Anchor.X - unit.Ink.X - unit.Ink.Width / 2,
                         item.Anchor.Y - unit.Ink.Y - unit.Ink.Height / 2));
                     glyphDc.Pop();
                 }
                 glyph.Freeze(); dc.DrawDrawing(glyph);
-                glyphs.Add(new(unit.Text, item.Column, item.ColumnX, item.Anchor, unit.Rotation, glyph, item.Box));
+                glyphs.Add(new(unit.Text, item.Column, item.ColumnX, item.Anchor, item.Rotation, glyph, item.Box));
             }
         drawing.Freeze();
         return new(drawing, bestCharacters < totalCharacters, bestCharacters, RadialLabelDirection.Arc,
@@ -175,10 +175,12 @@ internal static class RadialArcLabel
         for (var columnIndex = 0; columnIndex < columns.Count && used < units.Count; columnIndex++)
         {
             var column = columns[columnIndex];
-            var top = RadialGeometry.Polar(center, column.Radius, column.Top).Y;
-            var bottom = RadialGeometry.Polar(center, column.Radius, column.Top + column.Direction * column.Sweep).Y;
-            var available = bottom - top - 6;
-            double Advance(Unit unit) => unit.ReadingHeight + Gap;
+            var available = column.Sweep * ToRadians - 6 / column.Radius;
+            // Reserve the angular span at the glyph's inner edge. Measuring
+            // only its centerline lets neighboring corners collide on small
+            // radii even though their head and bottom centers are separated.
+            double Advance(Unit unit) => 2 * Math.Atan2((unit.ReadingHeight + Gap) / 2,
+                Math.Max(1, column.Radius - (unit.ReadingWidth + 1) / 2));
             var count = 0;
             var extent = 0d;
             while (used + count < units.Count && extent + Advance(units[used + count]) <= available)
@@ -188,27 +190,24 @@ internal static class RadialArcLabel
             while (count > 0)
             {
                 var batch = new List<Placement>();
-                var cursor = (top + bottom - extent) / 2;
+                var cursor = (column.Sweep * ToRadians - extent) / 2;
                 for (var index = 0; index < count; index++)
                 {
                     var unit = units[used + index];
                     var advance = Advance(unit);
-                    var y = cursor + advance / 2;
+                    var angle = column.Top + column.Direction * (cursor + advance / 2) / ToRadians;
                     cursor += advance;
-                    // Keep normal vertical leading between upright glyphs.
-                    // Only X follows the circle; the rotation envelope is for
-                    // clipping, not the typographic advance of each character.
-                    var dy = y - center.Y;
-                    var x = center.X + column.Direction * Math.Sqrt(Math.Max(0, column.Radius * column.Radius - dy * dy));
-                    var anchor = new Point(x, y);
+                    var anchor = RadialGeometry.Polar(center, column.Radius, angle);
+                    // The Chinese vertical axis follows the downward tangent:
+                    // each character's bottom meets the next character's head.
+                    // Latin runs stay sideways relative to that same axis.
+                    var columnRotation = Math.IEEERemainder(angle + (column.Direction < 0 ? 180 : 0), 360);
+                    var rotation = columnRotation + unit.Rotation;
                     var envelope = new EllipseGeometry(anchor, unit.Radius, unit.Radius);
-                    var sideways = unit.Rotation != 0;
-                    var width = (sideways ? unit.Ink.Height : unit.Ink.Width) + 1;
-                    var height = (sideways ? unit.Ink.Width : unit.Ink.Height) + 1;
-                    var box = new RectangleGeometry(new Rect(anchor.X - width / 2, anchor.Y - height / 2, width, height));
+                    var box = InkBox(unit, anchor, rotation);
                     if (shape.FillContainsWithDetail(envelope) != IntersectionDetail.FullyContains ||
-                        placed.Concat(batch).Any(previous => previous.Box.Bounds.IntersectsWith(box.Bounds))) break;
-                    box.Freeze(); batch.Add(new(unit, columnIndex, column.X, anchor, box));
+                        placed.Concat(batch).Any(previous => Overlaps(previous.Box, box))) break;
+                    batch.Add(new(unit, columnIndex, column.X, anchor, rotation, box));
                 }
                 if (batch.Count == count) { placed.AddRange(batch); used += count; break; }
                 extent -= Advance(units[used + --count]);
@@ -249,13 +248,10 @@ internal static class RadialArcLabel
                     var unit = units[used + index];
                     var advance = Advance(unit);
                     var anchor = new Point(x, y + advance / 2); y += advance;
-                    var sideways = unit.Rotation != 0;
-                    var width = (sideways ? unit.Ink.Height : unit.Ink.Width) + 1;
-                    var height = (sideways ? unit.Ink.Width : unit.Ink.Height) + 1;
-                    var box = new RectangleGeometry(new Rect(anchor.X - width / 2, anchor.Y - height / 2, width, height));
+                    var box = InkBox(unit, anchor, unit.Rotation);
                     if (shape.FillContainsWithDetail(new EllipseGeometry(anchor, unit.Radius, unit.Radius)) != IntersectionDetail.FullyContains ||
-                        placed.Concat(batch).Any(previous => previous.Box.Bounds.IntersectsWith(box.Bounds))) break;
-                    box.Freeze(); batch.Add(new(unit, column, x, anchor, box));
+                        placed.Concat(batch).Any(previous => Overlaps(previous.Box, box))) break;
+                    batch.Add(new(unit, column, x, anchor, unit.Rotation, box));
                 }
                 if (batch.Count == count) { placed.AddRange(batch); used += count; break; }
                 extent -= Advance(units[used + --count]);
@@ -264,16 +260,18 @@ internal static class RadialArcLabel
         return (placed, used);
     }
 
-    internal static void Draw(DrawingContext dc, ExperimentalLabel label, double angleOffset)
+    private static Geometry InkBox(Unit unit, Point anchor, double rotation)
     {
-        if (angleOffset == 0 || label.ArcGlyphs is null) { dc.DrawDrawing(label.Drawing); return; }
-        foreach (var glyph in label.ArcGlyphs)
+        var width = unit.Ink.Width + 1;
+        var height = unit.Ink.Height + 1;
+        var box = new RectangleGeometry(new Rect(anchor.X - width / 2, anchor.Y - height / 2, width, height))
         {
-            // The outer cell transform moves the anchor around the circle.
-            // Counter-rotate each glyph at its own anchor, not the whole label.
-            dc.PushTransform(new RotateTransform(-angleOffset, glyph.Anchor.X, glyph.Anchor.Y));
-            dc.DrawDrawing(glyph.Drawing);
-            dc.Pop();
-        }
+            Transform = new RotateTransform(rotation, anchor.X, anchor.Y)
+        };
+        box.Freeze();
+        return box;
     }
+
+    private static bool Overlaps(Geometry first, Geometry second) =>
+        first.Bounds.IntersectsWith(second.Bounds) && first.FillContainsWithDetail(second) != IntersectionDetail.Empty;
 }

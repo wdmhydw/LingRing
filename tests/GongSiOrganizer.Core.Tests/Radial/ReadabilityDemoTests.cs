@@ -144,7 +144,7 @@ public sealed class ReadabilityDemoTests
     [InlineData(180, 58)]
     [InlineData(360, 58)]
     [InlineData(-90, 360)]
-    public void UprightColumnsReadDownThenLeftToRightWithoutReversingAtThePoles(double middle, double sweep) => OnSta(() =>
+    public void ArcColumnsReadDownThenLeftToRightWithoutReversingAtThePoles(double middle, double sweep) => OnSta(() =>
     {
         const string text = "甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥";
         var center = new RadialPoint(420, 420);
@@ -154,7 +154,7 @@ public sealed class ReadabilityDemoTests
         Assert.False(label.IsTruncated);
         var glyphs = Assert.IsAssignableFrom<IReadOnlyList<ArcLabelGlyph>>(label.ArcGlyphs);
         Assert.Equal(text, string.Concat(glyphs.Select(glyph => glyph.Text)));
-        Assert.All(glyphs, glyph => Assert.Equal(0d, glyph.Rotation));
+        Assert.All(glyphs, glyph => Assert.True(Assert.Single(HeadDirections(glyph.Drawing)).Y < 0));
         var columns = glyphs.GroupBy(glyph => glyph.Column).ToArray();
         Assert.Equal(columns.Select(column => column.First().ColumnX).Order(), columns.Select(column => column.First().ColumnX));
         foreach (var column in columns)
@@ -164,20 +164,25 @@ public sealed class ReadabilityDemoTests
         }
         for (var i = 0; i < glyphs.Count; i++)
         for (var j = i + 1; j < glyphs.Count; j++)
-            Assert.False(glyphs[i].InkBox.Bounds.IntersectsWith(glyphs[j].InkBox.Bounds));
+            Assert.Equal(IntersectionDetail.Empty, glyphs[i].InkBox.FillContainsWithDetail(glyphs[j].InkBox));
     });
 
     [Fact]
-    public void EnglishAndNumbersStayInOrderedSidewaysRunsWhileChineseStaysUpright() => OnSta(() =>
+    public void EnglishAndNumbersStayInOrderedRunsSidewaysToTheArcColumn() => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
         var label = RadialArcLabel.Create("客户ABC2026资料e\u0301版本", RadialGeometry.Wedge(center, 220, 302, -59, -1),
             new RadialLabelArc(center, 220, 302, -59, -1), 1);
         Assert.False(label.IsTruncated);
         var glyphs = label.ArcGlyphs!;
-        Assert.Contains(glyphs, glyph => glyph.Text == "ABC2026" && glyph.Rotation == -90);
-        Assert.Contains(glyphs, glyph => glyph.Text == "e\u0301" && glyph.Rotation == -90);
-        Assert.Contains(glyphs, glyph => glyph.Text == "客" && glyph.Rotation == 0);
+        foreach (var text in new[] { "ABC2026", "e\u0301" })
+        {
+            var glyph = Assert.Single(glyphs, glyph => glyph.Text == text);
+            var leftOfColumn = new System.Windows.Point(center.X, center.Y) - glyph.Anchor; leftOfColumn.Normalize();
+            var head = Assert.Single(HeadDirections(glyph.Drawing));
+            Assert.Equal(leftOfColumn.X, head.X, 6); Assert.Equal(leftOfColumn.Y, head.Y, 6);
+        }
+        Assert.Contains(glyphs, glyph => glyph.Text == "客" && Assert.Single(HeadDirections(glyph.Drawing)).Y < 0);
         Assert.Equal("客户ABC2026资料e\u0301版本", string.Concat(glyphs.Select(glyph => glyph.Text)));
     });
 
@@ -195,55 +200,118 @@ public sealed class ReadabilityDemoTests
     });
 
     [Theory]
-    [InlineData("中文正立方向", -90, 0, -1)]
-    [InlineData("中文正立方向", -45, 0, -1)]
-    [InlineData("中文正立方向", 45, 0, -1)]
-    [InlineData("中文正立方向", 90, 0, -1)]
-    [InlineData("ABC2026", -90, -1, 0)]
-    [InlineData("ABC2026", -45, -1, 0)]
-    [InlineData("ABC2026", 45, -1, 0)]
-    [InlineData("ABC2026", 90, -1, 0)]
-    public void ActualDrawingKeepsCharacterHeadsFixedDuringWheelRotation(string text, double offset, double headX, double headY) => OnSta(() =>
+    [InlineData("上字底接下字头", -90)]
+    [InlineData("上字底接下字头", -45)]
+    [InlineData("上字底接下字头", 45)]
+    [InlineData("上字底接下字头", 90)]
+    [InlineData("ABC2026", -90)]
+    [InlineData("ABC2026", -45)]
+    [InlineData("ABC2026", 45)]
+    [InlineData("ABC2026", 90)]
+    public void ActualDrawingPreservesHeadToBottomConnectionsDuringWheelRotation(string text, double offset) => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
         var shape = RadialGeometry.Wedge(center, 220, 302, -59, -1);
         var label = RadialArcLabel.Create(text, shape, new RadialLabelArc(center, 220, 302, -59, -1), 1);
         Assert.False(label.IsTruncated);
         var frame = new DrawingGroup();
+        var rotation = new RotateTransform(offset, center.X, center.Y);
         using (var dc = frame.Open())
         {
-            dc.PushTransform(new RotateTransform(offset, center.X, center.Y));
-            RadialArcLabel.Draw(dc, label, offset);
+            dc.PushTransform(rotation);
+            dc.DrawDrawing(label.Drawing);
             dc.Pop();
         }
-        var directions = new List<Vector>();
-        void InspectDrawing(Drawing drawing, Matrix parent)
-        {
-            if (drawing is DrawingGroup group)
-            {
-                var matrix = group.Transform?.Value ?? Matrix.Identity; matrix.Append(parent);
-                foreach (var child in group.Children) InspectDrawing(child, matrix);
-            }
-            else if (drawing is GlyphRunDrawing) directions.Add(parent.Transform(new Vector(0, -1)));
-        }
-        InspectDrawing(frame, Matrix.Identity);
+        var original = HeadDirections(label.Drawing);
+        var directions = HeadDirections(frame);
         Assert.NotEmpty(directions);
-        Assert.All(directions, direction =>
+        Assert.Equal(original.Count, directions.Count);
+        for (var i = 0; i < directions.Count; i++)
         {
-            Assert.Equal(headX, direction.X, 6); Assert.Equal(headY, direction.Y, 6);
-        });
-        var rotatedShape = shape.Clone(); rotatedShape.Transform = new RotateTransform(offset, center.X, center.Y);
+            var expected = rotation.Value.Transform(original[i]);
+            Assert.Equal(expected.X, directions[i].X, 6); Assert.Equal(expected.Y, directions[i].Y, 6);
+        }
+        if (text != "ABC2026")
+            for (var i = 1; i < label.ArcGlyphs!.Count; i++)
+            {
+                var bottom = rotation.Transform(label.ArcGlyphs[i - 1].Anchor) - directions[i - 1] * (RadialTypography.FontSize / 2);
+                var top = rotation.Transform(label.ArcGlyphs[i].Anchor) + directions[i] * (RadialTypography.FontSize / 2);
+                Assert.InRange((top - bottom).Length, .5, 2.5);
+            }
+        var rotatedShape = shape.Clone(); rotatedShape.Transform = rotation;
         foreach (var glyph in label.ArcGlyphs!)
         {
-            var box = glyph.InkBox.Clone();
-            box.Transform = new TransformGroup { Children =
-            {
-                new RotateTransform(-offset, glyph.Anchor.X, glyph.Anchor.Y),
-                new RotateTransform(offset, center.X, center.Y)
-            } };
+            var box = new GeometryGroup { Children = { glyph.InkBox }, Transform = rotation };
             Assert.Equal(IntersectionDetail.FullyContains, rotatedShape.FillContainsWithDetail(box));
         }
     });
+
+    [Theory]
+    [InlineData(-150)]
+    [InlineData(150)]
+    [InlineData(-30)]
+    [InlineData(30)]
+    public void ConsecutiveChineseCharactersConnectBottomToHeadAlongTheArc(double middle) => OnSta(() =>
+    {
+        var center = new RadialPoint(420, 420);
+        const string text = "数据明细与分析报告";
+        var label = RadialArcLabel.Create(text, RadialGeometry.Wedge(center, 220, 302, middle - 29, middle + 29),
+            new RadialLabelArc(center, 220, 302, middle - 29, middle + 29), 1);
+        Assert.False(label.IsTruncated);
+        var glyphs = label.ArcGlyphs!;
+        Assert.Single(glyphs.Select(glyph => glyph.Column).Distinct());
+        for (var i = 1; i < glyphs.Count; i++)
+        {
+            var previous = glyphs[i - 1]; var next = glyphs[i];
+            // Inspect the rendered glyph transform, rather than trusting the
+            // layout's rotation metadata. Sideways staircase text fails this.
+            var previousHead = Assert.Single(HeadDirections(previous.Drawing));
+            var nextHead = Assert.Single(HeadDirections(next.Drawing));
+            var bottom = previous.Anchor - previousHead * (RadialTypography.FontSize / 2);
+            var top = next.Anchor + nextHead * (RadialTypography.FontSize / 2);
+            Assert.InRange((top - bottom).Length, .5, 2.5);
+            var advance = next.Anchor - previous.Anchor; advance.Normalize();
+            var reading = -(previousHead + nextHead); reading.Normalize();
+            Assert.True(Vector.Multiply(advance, reading) > .999);
+            Assert.True(previousHead.Y < 0 && nextHead.Y < 0);
+        }
+    });
+
+    [Theory]
+    [InlineData(-150)]
+    [InlineData(150)]
+    [InlineData(-30)]
+    [InlineData(30)]
+    public void TightInnerArcsKeepAnEightCharacterNameWithoutCollidingCorners(double middle) => OnSta(() =>
+    {
+        var center = new RadialPoint(420, 420);
+        const string text = "品牌视觉设计规范";
+        var shape = RadialGeometry.Wedge(center, 58, 140, middle - 29, middle + 29);
+        var label = RadialArcLabel.Create(text, shape, new RadialLabelArc(center, 58, 140, middle - 29, middle + 29), 1);
+        Assert.False(label.IsTruncated);
+        Assert.Equal(text, string.Concat(label.ArcGlyphs!.Select(glyph => glyph.Text)));
+        var boxes = label.InkBoxes!;
+        Assert.All(boxes, box => Assert.Equal(IntersectionDetail.FullyContains, shape.FillContainsWithDetail(box)));
+        for (var i = 0; i < boxes.Count; i++)
+        for (var j = i + 1; j < boxes.Count; j++)
+            Assert.Equal(IntersectionDetail.Empty, boxes[i].FillContainsWithDetail(boxes[j]));
+    });
+
+    private static IReadOnlyList<Vector> HeadDirections(Drawing drawing)
+    {
+        var result = new List<Vector>();
+        void Inspect(Drawing node, Matrix parent)
+        {
+            if (node is DrawingGroup group)
+            {
+                var matrix = group.Transform?.Value ?? Matrix.Identity; matrix.Append(parent);
+                foreach (var child in group.Children) Inspect(child, matrix);
+            }
+            else if (node is GlyphRunDrawing) result.Add(parent.Transform(new Vector(0, -1)));
+        }
+        Inspect(drawing, Matrix.Identity);
+        return result;
+    }
 
     private static void OnSta(Action action)
     {

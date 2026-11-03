@@ -31,7 +31,7 @@ internal sealed class ReadabilityLabWindow : Window
     private readonly Canvas _stage = new() { Background = UiVisuals.Brush(UiVisuals.Canvas), ClipToBounds = true };
     private readonly RadialMenuControl _wheel = new() { IsSelectionDemo = true };
     private readonly ComboBox _quantity = Choice("2 项", "3 项", "4 项", "5 项", "6 项", "7 项", "8 项");
-    private readonly ComboBox _direction = Choice("横排 · 保留首尾", "沿弧竖排 · 中文正立", "自动 · 多显示文字");
+    private readonly ComboBox _direction = Choice("横排 · 保留首尾", "沿弧竖排 · 首尾相接", "自动 · 多显示文字");
     private readonly ComboBox _width = Choice("标准", "舒展", "宽松");
     private readonly ComboBox _sample = Choice("长中文与同名前缀", "中英混排与版本号", "短名称对照");
     private readonly ComboBox _position = Choice("居中", "左下边角", "右上边角");
@@ -238,7 +238,7 @@ internal sealed class ReadabilityLabWindow : Window
         {
             "baseline" => "当前四项轮盘，作为尺寸和文字容量的基线。",
             "dense" => "多看两项，并给长名称更宽的圆环和最多四行空间。",
-            "arc" => "中文正立，沿弧从上往下读；换列从左往右。英文和数字成段侧排，字头朝左。",
+            "arc" => "字与字顺着弧线首尾相接，从上往下读；换列从左往右。英文和数字成段侧排。",
             "list" => "轮盘快速定位，侧栏阅读全部名称，也可搜索和进入。",
             _ => "按每个扇区的实际容量选横排或弧形排字；显示量相同优先横排。"
         };
