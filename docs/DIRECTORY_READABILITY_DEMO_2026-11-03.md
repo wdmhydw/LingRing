@@ -2,18 +2,18 @@
 
 2026-11-03，独立实验分支 `codex/directory-readability-demo`，等待用户试用后决定合并。
 
-最新修订：用户进一步明确“上一个文字的底接着下一个文字的头”。中文纵轴现在随弧线读向转动，按弧长连续排字；左右两侧均从上往下，换列从左往右。英文和数字相对列的方向侧排。上一轮固定屏幕正立形成的阶梯错位已替换，16 DIP 列间距保留。
+最新修订：用户指定分区方向，并确认上下区域的中文也横排。顶部、底部的中文、英文和数字正常横排，按扇区实际宽度换行；右上字头朝右外侧、行内上到下，左上字头朝左外侧、行内下到上，上方两侧均从外往内换行。下方两侧沿用首尾衔接竖排，16 DIP 轨道间距保留。
 
 基于首次呼出优化提交 `992bebd`。该优化另外保存在 `codex/startup-latency`，本实验与已安装的 v0.6.5 各自独立。
 
 ## 试用入口
 
-打开项目下 `artifacts/readability-connected-20261103/demo/LingRing.ReadabilityDemo.exe`。这是使用本机 .NET 8 Windows Desktop Runtime 的 WPF 演示程序；整个 `demo` 目录需要放在一起。
+打开项目下 `artifacts/readability-regional-20261103/demo/LingRing.ReadabilityDemo.exe`。这是使用本机 .NET 8 Windows Desktop Runtime 的 WPF 演示程序；整个 `demo` 目录需要放在一起。
 
 默认进入「沿弧排字」，可直接操作真实轮盘控件：
 
 - 每圈上限可选 **2～8 项**；圆环空间可选标准、舒展、宽松。
-- **沿弧竖排 · 首尾相接**：中文前字字底与后字字头顺着弧线衔接，字身随弧线逐步转动。左右两侧均从弧线上端向下阅读，换列按屏幕左到右；顶部、底部保留中心沿弧排列的短竖列。英文和数字相对列的纵轴逆时针旋转 90°，字头朝列的左侧；常见年份保持完整。
+- **沿弧排字 · 分区方向**：顶部、底部全部正常横排，按可用框宽自动换行。右上字头朝右、字底朝左，行内从上往下；左上字头朝左、字底朝右，行内从下往上；两侧均先外侧一行，再向内换行。下方两侧保留沿弧的前字字底接后字字头，换列从左往右，英文数字成段侧排。
 - **自动阅读**：逐个扇区比较横排与弧形排字，选择显示实际名称字符更多的方式；容量相同时优先横排。
 - **完整名称侧栏**：跟随悬停圈，也可固定到某一圈；显示全部同级目录，支持多关键词过滤、单击查看、双击或 Enter 进入。
 - 在预览区点中键可改变打开位置；滚轮切换同级项目，右键或 Backspace 返回，外圈蓝弧继续进入深层。
@@ -29,7 +29,7 @@
 
 Kurtenbach、Sellen 和 Buxton 的原始研究分别考察了菜单项目数、输入设备和显示状态对选择操作的影响。这支持同时比较密度与操作体验的做法；研究场景与本产品的多层目录轮盘有差异，不据此宣称某个项目数普遍最优。[论文](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/08/marking-menus-93.pdf)
 
-沿弧文字使用已有的「文字沿路径」思路，并将路径与字形朝向分开处理。W3C 的书写模式规范区分布局方向和字向，Unicode 竖排规范讨论不同文字及字素的朝向；本次具体方向按用户的首尾衔接要求实现，中文纵轴沿弧线切线，英文数字相对该纵轴侧排。这是本 Demo 的排版选择。[W3C Writing Modes](https://www.w3.org/TR/css-writing-modes-4/#text-orientation)、[Unicode 竖排](https://www.unicode.org/reports/tr50/)
+沿弧文字使用已有的「文字沿路径」思路，并将路径与字形朝向分开处理。W3C 的书写模式规范区分布局方向和字向，Unicode 竖排规范讨论不同文字及字素的朝向；本 Demo 按用户指定分别选择上方横向基线沿弧、下方纵轴沿弧，以及顶底普通横排。[W3C Writing Modes](https://www.w3.org/TR/css-writing-modes-4/#text-orientation)、[Unicode 竖排](https://www.unicode.org/reports/tr50/)
 
 沿弧排字对两侧窄长扇区和外圈的空间利用较好，但内圈曲率大、长英文需要换行时，阅读仍可能费力。因此同时做了自动方向选择、保留名称首尾、完整名称侧栏与搜索。默认先展示用户提出的沿弧方案，最终默认方式由试用决定。
 
@@ -41,34 +41,35 @@ Kurtenbach、Sellen 和 Buxton 的原始研究分别考察了菜单项目数、�
 | --- | ---: | ---: | ---: |
 | 原版四项、标准圆环 | 12 | 6 | 145 / 188 |
 | 六项横排、舒展圆环 | 18 | 4 | 192 / 274 |
-| 六项首尾衔接沿弧、舒展圆环 | 18 | 12 | 257 / 274 |
-| 六项自动、舒展圆环 | 18 | 12 | 258 / 274 |
+| 六项分区沿弧、舒展圆环 | 18 | 14 | 264 / 274 |
+| 六项自动、舒展圆环 | 18 | 14 | 264 / 274 |
 
-六项横排与六项首尾衔接沿弧使用相同尺寸和目录，沿弧多显示了 65 个实际字符。上一轮固定屏幕正立、收紧字距的版本为 252/274，本次为 257/274，完整名称数仍为 12/18。原版与六项方案的数量和圆环宽度均不同，只能作为整体方案对照。容量结果不等同于阅读速度或误点率；真实手感仍待用户验证。
+六项横排与六项分区沿弧使用相同尺寸和目录，分区方案多显示了 72 个实际字符。上一轮统一首尾衔接方案为 257/274、完整名称 12/18；本次为 264/274、完整名称 14/18。原版与六项方案的数量和圆环宽度均不同，只能作为整体方案对照。容量结果不等同于阅读速度或误点率；真实手感仍待用户验证。
 
 边角与最小窗口预览表明，空间受限时仍会截断名称；这也是保留数量调整、悬停全名和侧栏的原因。弧形排字当前主要针对中文、英文与数字混排；字素不会被拆开，但尚未覆盖需要复杂连字、双向排版的各类语言。
 
 ## 实现与验证
 
 - 数量扩展贯穿会话、绘制、命中、蓝弧、键盘和连续滚轮队列；普通启动仍使用原版四项和原排版，实验配置只由独立 Demo 传入。
-- 每扇区文字结果缓存；滚动时文字与扇区作为整体转动，保持字头和字底之间的距离及方向，不再逐字抵消旋转。排版预留圆形包围范围，检查每个旋转后的字形框是否位于扇区内及有无重叠。
-- 两侧按可见列的屏幕 X 从左到右排列，列内 Y 递增；圆顶、圆底采用沿弧排列的短竖列，避免读序在拐点折返。标点和换列不拆开字素，短年份不拆成零散数字。
-- 字符步进按阅读高度加 1.25 DIP 留白计算角度，并计入字形靠圆心一侧的宽度，防止内圈曲率大时相邻字角相撞、过早省略。列间距为 16 DIP，旋转包围圆仅用于边界保护。
+- 每扇区文字结果缓存；沿弧文字在滚动时与扇区作为整体转动，顶底普通横排沿用水平文字的角度补偿。排版检查字形边界与交叠，普通启动仍使用原版排版。
+- 整个扇区先选择分区规则。上方两侧按角度递增排字，横排基线取切线方向，字头朝外；轨道半径从大到小，因此右上上到下、左上下到上。下方两侧沿用纵轴切线和原有左右换列规则。角度归一前后读序一致。
+- 顶底直接使用横排布局，移除固定短竖列。可用宽度取实际形状边界，高度决定候选行数；完整名称优先采用较少行，超出可用空间时保留首尾。字素仍保持完整。
+- 沿弧步进依据当前读向的字宽或字高加 1.25 DIP 留白，并计入字形内侧边角，防止内圈碰撞。轨道间距为 16 DIP，旋转包围圆用于边界保护。
 - 6/8 项的错峰时长压缩到原有 **280 ms** 展开预算内。
-- 完整 Release 回归 **266/266**；目录阅读专项共 **48 项**。本次新增 **8 项**：四个方位的实际绘制字头/字底衔接，以及四个方位的内圈短名称完整显示和无碰撞。两组检查均先复现旧问题再通过；原有读序、年份、裁切和滚动测试按最新方向要求更新。构建 0 警告、0 错误。
-- 当前 EXE 的 **11 项原生交互检查**通过：八项容量、三步连续滚动及落点、第八项点击、多词搜索、侧栏进入/返回、搜索空态和边角减量。首轮 Demo 的真实文件系统读取与空目录检查沿用此前验证，本次未修改目录读取逻辑。
-- **11 张原生画面**覆盖五种预设、八项滚动中/结束、中英混排、短名、边角和最小窗口。截图使用内存目录。首轮发现内圈字角挤占，集中修正后完成一次确认，检查首尾衔接、滚动保形和混排。
+- 完整 Release 回归 **276/276**；目录阅读专项共 **58 项**。本次新增 **10 项**：上方左右读序及等价角度、顶底中英文横排，以及不同框宽的长名称换行。前八项先复现旧行为再通过；原有字向、年份、裁切和滚动测试按最新分区要求更新。构建 0 警告、0 错误。
+- 当前 EXE 的 **13 项原生交互检查**通过：原有八项容量、连续滚动及落点、点击、搜索、进入/返回、空态和边角减量，增加将同一英文数字名称滚到顶部和底部的检查。首轮真实目录读取验证沿用此前结果，本次目录读取逻辑未变。
+- **13 张原生画面**覆盖五种预设、八项滚动中/结束、中英混排、短名、边角和最小窗口，并新增顶部与底部的英文数字名称。集中核对分区字向、顶底横排、长中文利用框宽及边角裁切。
 
-当前证据目录：`artifacts/readability-connected-20261103/confirmed/`，含 `comparison.json`、`interaction-checks.json` 和 PNG。测试报告：`artifacts/readability-connected-20261103/tests/connected-final.trx`。同目录下 `verified/` 为内圈修正前的初查画面；此前的 `readability-compact`、`readability-upright` 与 `readability-demo` 产物均保留为历史。
+当前证据目录：`artifacts/readability-regional-20261103/verified/`，含 `comparison.json`、`interaction-checks.json` 和 PNG。测试报告：`artifacts/readability-regional-20261103/tests/regional-final.trx`。此前的 `readability-connected`、`readability-compact`、`readability-upright` 与 `readability-demo` 产物保留为历史。
 
 复现构建与截图：
 
 ```powershell
 $env:WINDIR = $env:SystemRoot
 dotnet restore tools/ReadabilityDemo/ReadabilityDemo.csproj --locked-mode -r win-x64
-dotnet build tools/ReadabilityDemo/ReadabilityDemo.csproj -c Release --no-restore -o artifacts/readability-connected-20261103/demo
+dotnet build tools/ReadabilityDemo/ReadabilityDemo.csproj -c Release --no-restore -o artifacts/readability-regional-20261103/demo
 dotnet test tests/GongSiOrganizer.Core.Tests/GongSiOrganizer.Core.Tests.csproj -c Release --no-restore
-& ./artifacts/readability-connected-20261103/demo/LingRing.ReadabilityDemo.exe --capture artifacts/readability-connected-20261103/recapture
+& ./artifacts/readability-regional-20261103/demo/LingRing.ReadabilityDemo.exe --capture artifacts/readability-regional-20261103/recapture
 ```
 
 本轮只交付本地实验，不发布、不合并。下一步由用户试用决定数量默认值、纯弧形或自动方向，以及侧栏是否作为按需展开的辅助入口。

@@ -144,7 +144,7 @@ public sealed class ReadabilityDemoTests
     [InlineData(180, 58)]
     [InlineData(360, 58)]
     [InlineData(-90, 360)]
-    public void ArcColumnsReadDownThenLeftToRightWithoutReversingAtThePoles(double middle, double sweep) => OnSta(() =>
+    public void RegionalReadingKeepsTextOrderAndAvoidsOverlappingGlyphs(double middle, double sweep) => OnSta(() =>
     {
         const string text = "甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥";
         var center = new RadialPoint(420, 420);
@@ -152,15 +152,28 @@ public sealed class ReadabilityDemoTests
         var label = RadialArcLabel.Create(text, shape,
             new RadialLabelArc(center, 220, 302, middle - sweep / 2, middle + sweep / 2), 1);
         Assert.False(label.IsTruncated);
+        if (label.Direction == RadialLabelDirection.Horizontal)
+        {
+            Assert.All(HeadDirections(label.Drawing), head => { Assert.Equal(0, head.X, 6); Assert.Equal(-1, head.Y, 6); });
+            Assert.All(label.InkBoxes!, box => Assert.Equal(IntersectionDetail.FullyContains, shape.FillContainsWithDetail(box)));
+            return;
+        }
         var glyphs = Assert.IsAssignableFrom<IReadOnlyList<ArcLabelGlyph>>(label.ArcGlyphs);
         Assert.Equal(text, string.Concat(glyphs.Select(glyph => glyph.Text)));
         Assert.All(glyphs, glyph => Assert.True(Assert.Single(HeadDirections(glyph.Drawing)).Y < 0));
         var columns = glyphs.GroupBy(glyph => glyph.Column).ToArray();
-        Assert.Equal(columns.Select(column => column.First().ColumnX).Order(), columns.Select(column => column.First().ColumnX));
+        var upper = sweep < 180 && Math.Sin(middle * Math.PI / 180) < -.000001;
+        if (upper)
+        {
+            var radii = columns.Select(column => (column.First().Anchor - new System.Windows.Point(center.X, center.Y)).Length).ToArray();
+            Assert.Equal(radii.OrderDescending(), radii);
+        }
+        else Assert.Equal(columns.Select(column => column.First().ColumnX).Order(), columns.Select(column => column.First().ColumnX));
         foreach (var column in columns)
         {
             var letters = column.ToArray();
-            for (var i = 1; i < letters.Length; i++) Assert.True(letters[i].Anchor.Y > letters[i - 1].Anchor.Y);
+            for (var i = 1; i < letters.Length; i++) Assert.True(upper && Math.Cos(middle * Math.PI / 180) < 0
+                ? letters[i].Anchor.Y < letters[i - 1].Anchor.Y : letters[i].Anchor.Y > letters[i - 1].Anchor.Y);
         }
         for (var i = 0; i < glyphs.Count; i++)
         for (var j = i + 1; j < glyphs.Count; j++)
@@ -171,8 +184,8 @@ public sealed class ReadabilityDemoTests
     public void EnglishAndNumbersStayInOrderedRunsSidewaysToTheArcColumn() => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
-        var label = RadialArcLabel.Create("客户ABC2026资料e\u0301版本", RadialGeometry.Wedge(center, 220, 302, -59, -1),
-            new RadialLabelArc(center, 220, 302, -59, -1), 1);
+        var label = RadialArcLabel.Create("客户ABC2026资料e\u0301版本", RadialGeometry.Wedge(center, 220, 302, 1, 59),
+            new RadialLabelArc(center, 220, 302, 1, 59), 1);
         Assert.False(label.IsTruncated);
         var glyphs = label.ArcGlyphs!;
         foreach (var text in new[] { "ABC2026", "e\u0301" })
@@ -189,14 +202,15 @@ public sealed class ReadabilityDemoTests
     [Theory]
     [InlineData(-90)]
     [InlineData(90)]
-    public void CrownColumnsKeepYearsTogetherAndHaveUnambiguousLeftToRightOrder(double middle) => OnSta(() =>
+    public void CrownRowsKeepYearsTogetherInNormalHorizontalText(double middle) => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
         var label = RadialArcLabel.Create("2026年度归档", RadialGeometry.Wedge(center, 58, 140, middle - 29, middle + 29),
             new RadialLabelArc(center, 58, 140, middle - 29, middle + 29), 1);
-        Assert.Contains(label.ArcGlyphs!, glyph => glyph.Text == "2026" && glyph.Rotation == -90);
-        foreach (var column in label.ArcGlyphs!.GroupBy(glyph => glyph.Column))
-            Assert.Single(column.Select(glyph => glyph.Anchor.X).Distinct());
+        Assert.False(label.IsTruncated);
+        Assert.Equal(RadialLabelDirection.Horizontal, label.Direction);
+        Assert.Contains(DrawnText(label.Drawing), run => run.Contains("2026"));
+        Assert.All(HeadDirections(label.Drawing), head => { Assert.Equal(0, head.X, 6); Assert.Equal(-1, head.Y, 6); });
     });
 
     [Theory]
@@ -211,8 +225,8 @@ public sealed class ReadabilityDemoTests
     public void ActualDrawingPreservesHeadToBottomConnectionsDuringWheelRotation(string text, double offset) => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
-        var shape = RadialGeometry.Wedge(center, 220, 302, -59, -1);
-        var label = RadialArcLabel.Create(text, shape, new RadialLabelArc(center, 220, 302, -59, -1), 1);
+        var shape = RadialGeometry.Wedge(center, 220, 302, 1, 59);
+        var label = RadialArcLabel.Create(text, shape, new RadialLabelArc(center, 220, 302, 1, 59), 1);
         Assert.False(label.IsTruncated);
         var frame = new DrawingGroup();
         var rotation = new RotateTransform(offset, center.X, center.Y);
@@ -247,9 +261,9 @@ public sealed class ReadabilityDemoTests
     });
 
     [Theory]
-    [InlineData(-150)]
+    [InlineData(180)]
     [InlineData(150)]
-    [InlineData(-30)]
+    [InlineData(0)]
     [InlineData(30)]
     public void ConsecutiveChineseCharactersConnectBottomToHeadAlongTheArc(double middle) => OnSta(() =>
     {
@@ -296,6 +310,83 @@ public sealed class ReadabilityDemoTests
         for (var j = i + 1; j < boxes.Count; j++)
             Assert.Equal(IntersectionDetail.Empty, boxes[i].FillContainsWithDetail(boxes[j]));
     });
+
+    [Theory]
+    [InlineData(-30, true)]
+    [InlineData(-150, false)]
+    [InlineData(330, true)]
+    [InlineData(210, false)]
+    public void UpperArcRowsReadInTheirRequestedDirectionFromOutsideIn(double middle, bool downward) => OnSta(() =>
+    {
+        var center = new RadialPoint(420, 420);
+        const string text = "甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥天地玄黄宇宙洪荒";
+        var shape = RadialGeometry.Wedge(center, 220, 302, middle - 29, middle + 29);
+        var label = RadialArcLabel.Create(text, shape, new RadialLabelArc(center, 220, 302, middle - 29, middle + 29), 1);
+        Assert.False(label.IsTruncated);
+        var glyphs = label.ArcGlyphs!;
+        Assert.Equal(text, string.Concat(glyphs.Select(glyph => glyph.Text)));
+        var rows = glyphs.GroupBy(glyph => glyph.Column).Select(row => row.ToArray()).ToArray();
+        Assert.True(rows.Length >= 2);
+        double Radius(ArcLabelGlyph glyph) => (glyph.Anchor - new System.Windows.Point(center.X, center.Y)).Length;
+        for (var row = 0; row < rows.Length; row++)
+        {
+            if (row > 0) Assert.True(Radius(rows[row - 1][0]) > Radius(rows[row][0]));
+            for (var i = 0; i < rows[row].Length; i++)
+            {
+                var glyph = rows[row][i];
+                var outward = glyph.Anchor - new System.Windows.Point(center.X, center.Y); outward.Normalize();
+                var head = Assert.Single(HeadDirections(glyph.Drawing));
+                Assert.True(Vector.Multiply(outward, head) > .999);
+                if (i > 0) Assert.True(downward
+                    ? glyph.Anchor.Y > rows[row][i - 1].Anchor.Y
+                    : glyph.Anchor.Y < rows[row][i - 1].Anchor.Y);
+                Assert.Equal(IntersectionDetail.FullyContains, shape.FillContainsWithDetail(glyph.InkBox));
+            }
+        }
+    });
+
+    [Theory]
+    [InlineData(-90, "AI_Design_2026_FinalV2")]
+    [InlineData(90, "AI_Design_2026_FinalV2")]
+    [InlineData(-90, "市场推广方案与产品介绍_正式发布")]
+    [InlineData(90, "市场推广方案与产品介绍_正式发布")]
+    public void TopAndBottomUseNormalHorizontalRowsFittedToTheirWidth(double middle, string text) => OnSta(() =>
+    {
+        var center = new RadialPoint(420, 420);
+        var shape = RadialGeometry.Wedge(center, 220, 302, middle - 29, middle + 29);
+        var label = RadialArcLabel.Create(text, shape, new RadialLabelArc(center, 220, 302, middle - 29, middle + 29), 1);
+        Assert.Equal(RadialLabelDirection.Horizontal, label.Direction);
+        Assert.False(label.IsTruncated);
+        Assert.Equal(RadialExperimentalLabel.TextElements(text).Count, label.VisibleCharacters);
+        Assert.All(HeadDirections(label.Drawing), head => { Assert.Equal(0, head.X, 6); Assert.Equal(-1, head.Y, 6); });
+        Assert.True(label.Bounds.Width > 100);
+        Assert.All(label.InkBoxes!, box => Assert.Equal(IntersectionDetail.FullyContains, shape.FillContainsWithDetail(box)));
+    });
+
+    [Theory]
+    [InlineData(-90)]
+    [InlineData(90)]
+    public void WiderTopAndBottomCellsUseWiderLinesForLongNames(double middle) => OnSta(() =>
+    {
+        var center = new RadialPoint(420, 420);
+        const string text = "市场推广方案与产品介绍以及相关宣传材料和正式发布记录";
+        ExperimentalLabel At(double inner) => RadialArcLabel.Create(text,
+            RadialGeometry.Wedge(center, inner, inner + 82, middle - 29, middle + 29),
+            new RadialLabelArc(center, inner, inner + 82, middle - 29, middle + 29), 1);
+        var narrow = At(58); var wide = At(220);
+        Assert.False(wide.IsTruncated);
+        Assert.True(wide.Bounds.Width > narrow.Bounds.Width * 1.5);
+        Assert.True(wide.InkBoxes!.Count <= narrow.InkBoxes!.Count);
+        Assert.True(wide.VisibleCharacters >= narrow.VisibleCharacters);
+    });
+
+    private static IEnumerable<string> DrawnText(Drawing drawing)
+    {
+        if (drawing is GlyphRunDrawing glyph) yield return new string(glyph.GlyphRun.Characters.ToArray());
+        else if (drawing is DrawingGroup group)
+            foreach (var child in group.Children)
+            foreach (var text in DrawnText(child)) yield return text;
+    }
 
     private static IReadOnlyList<Vector> HeadDirections(Drawing drawing)
     {

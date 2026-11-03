@@ -35,7 +35,8 @@ internal static class RadialExperimentalLabel
         var best = new Candidate([], Rect.Empty, 0, true);
         if (direction != RadialLabelDirection.Arc)
         {
-            for (var lines = 1; lines <= 4; lines++)
+            var maximumLines = Math.Clamp(1 + (int)((shape.Bounds.Height - RadialTypography.InkHeight - 6) / RadialTypography.LineHeight), 1, 8);
+            for (var lines = 1; lines <= maximumLines; lines++)
             {
                 var height = RadialTypography.InkHeight + (lines - 1) * RadialTypography.LineHeight;
                 var width = FitWidth(shape, center, height);
@@ -56,6 +57,7 @@ internal static class RadialExperimentalLabel
             if (direction == RadialLabelDirection.Arc || curved.VisibleCharacters > best.Visible) return curved;
         }
         var drawing = new DrawingGroup();
+        var boxes = new List<Geometry>();
         using (var dc = drawing.Open())
         {
             if (!best.Bounds.IsEmpty)
@@ -67,15 +69,17 @@ internal static class RadialExperimentalLabel
                     var x = center.X;
                     var y = best.Bounds.Top + RadialTypography.InkHeight / 2 + i * RadialTypography.LineHeight;
                     dc.DrawText(text, new Point(x - ink.X - ink.Width / 2, y - ink.Y - ink.Height / 2));
+                    var box = new RectangleGeometry(new Rect(x - ink.Width / 2, y - ink.Height / 2, ink.Width, ink.Height));
+                    box.Freeze(); boxes.Add(box);
                 }
         }
         drawing.Freeze();
-        return new(drawing, best.Truncated, best.Visible, RadialLabelDirection.Horizontal, best.Bounds);
+        return new(drawing, best.Truncated, best.Visible, RadialLabelDirection.Horizontal, drawing.Bounds, boxes);
     }
 
     private static double FitWidth(Geometry shape, Point center, double height)
     {
-        double low = 0, high = 280;
+        double low = 0, high = shape.Bounds.Width;
         for (var step = 0; step < 10; step++)
         {
             var extent = (low + high) / 2;
