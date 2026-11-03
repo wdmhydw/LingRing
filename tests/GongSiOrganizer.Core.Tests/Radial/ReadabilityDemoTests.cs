@@ -178,20 +178,25 @@ public sealed class ReadabilityDemoTests
             Assert.Equal(IntersectionDetail.Empty, glyphs[i].InkBox.FillContainsWithDetail(glyphs[j].InkBox));
     });
 
-    [Fact]
-    public void EnglishAndNumbersStayInOrderedRunsSidewaysToTheArcColumn() => OnSta(() =>
+    [Theory]
+    [InlineData(30)]
+    [InlineData(120)]
+    [InlineData(150)]
+    [InlineData(-210)]
+    [InlineData(480)]
+    public void LowerEnglishAndNumbersFaceTheCenterAndKeepTheirTextOrder(double middle) => OnSta(() =>
     {
         var center = new RadialPoint(420, 420);
-        var label = RadialArcLabel.Create("客户ABC2026资料e\u0301版本", RadialGeometry.Wedge(center, 220, 302, 1, 59),
-            new RadialLabelArc(center, 220, 302, 1, 59), 1);
+        var label = RadialArcLabel.Create("客户ABC2026资料e\u0301版本", RadialGeometry.Wedge(center, 220, 302, middle - 14, middle + 14),
+            new RadialLabelArc(center, 220, 302, middle - 14, middle + 14), 1);
         Assert.False(label.IsTruncated);
         var glyphs = label.ArcGlyphs!;
         foreach (var text in new[] { "ABC2026", "e\u0301" })
         {
             var glyph = Assert.Single(glyphs, glyph => glyph.Text == text);
-            var leftOfColumn = new System.Windows.Point(center.X, center.Y) - glyph.Anchor; leftOfColumn.Normalize();
+            var inward = new System.Windows.Point(center.X, center.Y) - glyph.Anchor; inward.Normalize();
             var head = Assert.Single(HeadDirections(glyph.Drawing));
-            Assert.Equal(leftOfColumn.X, head.X, 6); Assert.Equal(leftOfColumn.Y, head.Y, 6);
+            Assert.Equal(inward.X, head.X, 6); Assert.Equal(inward.Y, head.Y, 6);
         }
         Assert.Contains(glyphs, glyph => glyph.Text == "客" && Assert.Single(HeadDirections(glyph.Drawing)).Y < 0);
         Assert.Equal("客户ABC2026资料e\u0301版本", string.Concat(glyphs.Select(glyph => glyph.Text)));

@@ -44,6 +44,8 @@ internal static class RadialArcLabel
         // axis. The upper sides read clockwise, with character heads outward.
         var upper = localSector && Math.Sin(middleAngle * ToRadians) < -.000001;
         var horizontalFlow = upper || crown;
+        var lowerLeft = localSector && !crown && Math.Sin(middleAngle * ToRadians) > .000001
+            && Math.Cos(middleAngle * ToRadians) < -.000001;
         var formats = new Dictionary<string, FormattedText>();
         FormattedText Format(string text)
         {
@@ -57,7 +59,9 @@ internal static class RadialArcLabel
             var formatted = Format(text);
             var ink = formatted.BuildGeometry(new Point()).Bounds;
             if (ink.IsEmpty) ink = new Rect(0, 0, RadialTypography.FontSize * .35, RadialTypography.InkHeight);
-            return new(text, formatted, ink, sideways ? -90 : 0, characters);
+            // The left lower column runs the opposite way around the circle;
+            // turn its Latin/numeric runs inward while retaining Chinese flow.
+            return new(text, formatted, ink, sideways ? (lowerLeft ? 90 : -90) : 0, characters);
         }
 
         var runWidth = Math.Max(RadialTypography.FontSize,

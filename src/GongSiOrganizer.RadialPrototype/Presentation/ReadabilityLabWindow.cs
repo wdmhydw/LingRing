@@ -485,7 +485,7 @@ internal sealed class ReadabilityLabWindow : Window
         await Settle(); Capture("arc-mixed-names");
         ApplyPreset("arc"); _quantity.SelectedIndex = 6; _adapt.IsChecked = false;
         await Settle(); _wheel.HoverDemo(2);
-        foreach (var (offset, slot, name) in new[] { (6, 4, "bottom-latin-horizontal"), (10, 0, "top-latin-horizontal") })
+        foreach (var (offset, slot, name) in new[] { (5, 5, "lower-left-latin-inward"), (6, 4, "bottom-latin-horizontal"), (10, 0, "top-latin-horizontal") })
         {
             for (var step = 0; step < 12 && _session!.GetRingView(2).Offset != offset; step++)
             { _wheel.RotateDemo(1); await Settle(); }

@@ -2,13 +2,15 @@
 
 2026-11-03，独立实验分支 `codex/directory-readability-demo`，等待用户试用后决定合并。
 
+最新局部修正：左下英文和数字调整为字头朝圆心、字底朝外。中文读序、锚点、弧线与其他分区规则沿用既定方案。
+
 最新修订：用户明确横排仍需保留弧度。顶部、底部的中文、英文和数字从左往右沿弧横排，每个字随圆弧转向，按实际可用弧长换行；右上字头朝右外侧、行内上到下，左上字头朝左外侧、行内下到上，上方两侧均从外往内换行。下方两侧沿用首尾衔接竖排，16 DIP 轨道间距保留。
 
 基于首次呼出优化提交 `992bebd`。该优化另外保存在 `codex/startup-latency`，本实验与已安装的 v0.6.5 各自独立。
 
 ## 试用入口
 
-打开项目下 `artifacts/readability-curved-crown-20261103/demo/LingRing.ReadabilityDemo.exe`。这是使用本机 .NET 8 Windows Desktop Runtime 的 WPF 演示程序；整个 `demo` 目录需要放在一起。
+打开项目下 `artifacts/readability-inward-20261103/demo/LingRing.ReadabilityDemo.exe`。这是使用本机 .NET 8 Windows Desktop Runtime 的 WPF 演示程序；整个 `demo` 目录需要放在一起。
 
 默认进入「沿弧排字」，可直接操作真实轮盘控件：
 
@@ -56,20 +58,20 @@ Kurtenbach、Sellen 和 Buxton 的原始研究分别考察了菜单项目数、�
 - 顶底保留跨极点的整段弧线。顶部角度递增、底部递减，横排基线分别取切线的两个方向，保证字头朝上、行内左到右。行数按圆环厚度、容量按可用弧长计算，超出空间保留首尾。中英文逐字素贴弧，六位及以内数字串约束在同一行并在截断时整体保留或省略。
 - 沿弧步进依据当前读向的字宽或字高加 1.25 DIP 留白，并计入字形内侧边角，防止内圈碰撞。轨道间距为 16 DIP，旋转包围圆用于边界保护。
 - 6/8 项的错峰时长压缩到原有 **280 ms** 展开预算内。
-- 完整 Release 回归 **278/278**；目录阅读专项共 **60 项**。顶底四项中英文检查先复现直线基线，再验证同心弧线、左到右读序和字向；新增两个等价角度用例，并强化年份不跨行、多行半径顺序及不同弧长容量的检查。构建 0 警告、0 错误。
-- 当前 EXE 的 **13 项原生交互检查**通过：原有八项容量、连续滚动及落点、点击、搜索、进入/返回、空态和边角减量，增加将同一英文数字名称滚到顶部和底部的检查。首轮真实目录读取验证沿用此前结果，本次目录读取逻辑未变。
-- **13 张原生画面**覆盖五种预设、八项滚动中/结束、中英混排、短名、边角和最小窗口，以及顶部与底部的英文数字名称。本次集中核对顶底中文弧线、英文数字逐字弧度和滚动形状。
+- 本次目录阅读专项 **64/64**：新增四个左下角度/等价角度检查，先复现字头朝外，再验证英文和数字头朝内、文字顺序及中文方向；右下基线与其他排版测试通过。构建 0 警告、0 错误。上版完整 Release 回归为 **278/278**，本次局部字向调整复用专项验证。
+- 当前 EXE 的 **14 项原生交互检查**通过：保留八项容量、连续滚动及落点、点击、搜索、进入/返回、空态、边角和顶底英文名称检查，新增将英文数字名称滚到左下区域的检查。真实目录读取沿用此前验证。
+- 生成 **14 张原生画面**，本次直接核对 `lower-left-latin-inward.png` 中英文、数字向圆心的字向及弧线。此前分区、顶底、边角等场景随交付程序重新生成。
 
-当前证据目录：`artifacts/readability-curved-crown-20261103/verified/`，含 `comparison.json`、`interaction-checks.json` 和 PNG。测试报告：`artifacts/readability-curved-crown-20261103/tests/curved-crown-final.trx`。此前的 `readability-regional`、`readability-connected`、`readability-compact`、`readability-upright` 与 `readability-demo` 产物保留为历史。
+当前证据目录：`artifacts/readability-inward-20261103/verified/`，含 `comparison.json`、`interaction-checks.json` 和 PNG。测试报告：`artifacts/readability-inward-20261103/tests/inward-readability.trx`。上版完整测试报告及历史画面仍在 `artifacts/readability-curved-crown-20261103/`，更早产物继续保留。
 
 复现构建与截图：
 
 ```powershell
 $env:WINDIR = $env:SystemRoot
 dotnet restore tools/ReadabilityDemo/ReadabilityDemo.csproj --locked-mode -r win-x64
-dotnet build tools/ReadabilityDemo/ReadabilityDemo.csproj -c Release --no-restore -o artifacts/readability-curved-crown-20261103/demo
-dotnet test tests/GongSiOrganizer.Core.Tests/GongSiOrganizer.Core.Tests.csproj -c Release --no-restore
-& ./artifacts/readability-curved-crown-20261103/demo/LingRing.ReadabilityDemo.exe --capture artifacts/readability-curved-crown-20261103/recapture
+dotnet build tools/ReadabilityDemo/ReadabilityDemo.csproj -c Release --no-restore -o artifacts/readability-inward-20261103/demo
+dotnet test tests/GongSiOrganizer.Core.Tests/GongSiOrganizer.Core.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~ReadabilityDemoTests
+& ./artifacts/readability-inward-20261103/demo/LingRing.ReadabilityDemo.exe --capture artifacts/readability-inward-20261103/recapture
 ```
 
 本轮只交付本地实验，不发布、不合并。下一步由用户试用决定数量默认值、纯弧形或自动方向，以及侧栏是否作为按需展开的辅助入口。
