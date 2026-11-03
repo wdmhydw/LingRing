@@ -28,6 +28,20 @@ internal sealed class RadialOverlayWindow : Window
     private bool _folderNameDialogOpen;
     private MoveFeedbackWindow? _moveFeedback;
     private bool _preparedForFirstShow;
+    private RadialDisplayOptions _displayOptions = new RadialPreferences().DisplayOptions;
+
+    public void SetPreferences(RadialPreferences preferences)
+    {
+        if (IsVisible) HideImmediately();
+        _displayOptions = preferences.DisplayOptions;
+        _control.DisplayOptions = _displayOptions;
+    }
+
+    private OverlayPlacement CreatePlacement(NativeScreenPoint point, bool invalidTarget = false) =>
+        NativeDisplay.CreatePlacement(point, invalidTarget, _displayOptions.RingWidth);
+
+    private RadialMenuSession CreateSession(FolderCatalogResult snapshot, RadialLayoutPlan layout) =>
+        new(snapshot.Folders, _displayOptions.Capacities(layout));
 
     public RadialOverlayWindow()
     {
@@ -40,7 +54,7 @@ internal sealed class RadialOverlayWindow : Window
         SnapsToDevicePixels = true;
         UseLayoutRounding = true;
 
-        _control = new RadialMenuControl();
+        _control = new RadialMenuControl { DisplayOptions = _displayOptions };
         _control.Confirmed += OnConfirmed;
         _control.CreateFolderRequested += OnCreateFolderRequested;
         _control.DismissRequested += HideOverlay;
@@ -66,13 +80,13 @@ internal sealed class RadialOverlayWindow : Window
         if (_preparedForFirstShow || _visibilityGeneration != 0 || IsVisible) return;
         _preparedForFirstShow = true;
         _ = new WindowInteropHelper(this).EnsureHandle();
-        var layout = NativeDisplay.CreatePlacement(NativeDisplay.GetPrimaryWorkAreaCenter(), false).Layout;
+        var layout = CreatePlacement(NativeDisplay.GetPrimaryWorkAreaCenter()).Layout;
         var size = new System.Windows.Size(layout.WindowBounds.Width, layout.WindowBounds.Height);
         _control.Width = _surface.Width = size.Width;
         _control.Height = _surface.Height = size.Height;
         try
         {
-            _control.Configure(layout, new RadialMenuSession(snapshot.Folders));
+            _control.Configure(layout, CreateSession(snapshot, layout));
             _surface.Measure(size);
             _surface.Arrange(new Rect(size));
             _surface.UpdateLayout();
@@ -95,8 +109,8 @@ internal sealed class RadialOverlayWindow : Window
             .ToArray();
         _isDemo = primeForDemo;
         _rootPath = snapshot.RootPath;
-        var placement = NativeDisplay.CreatePlacement(point, false);
-        var session = new RadialMenuSession(snapshot.Folders);
+        var placement = CreatePlacement(point);
+        var session = CreateSession(snapshot, placement.Layout);
         if (primeForDemo) session.PrimeForDemo();
         ShowCore(placement, session, _sourceFiles.Count);
     }
@@ -114,8 +128,8 @@ internal sealed class RadialOverlayWindow : Window
             .ToArray();
         _isDemo = false;
         _rootPath = snapshot.RootPath;
-        var placement = NativeDisplay.CreatePlacement(point, false);
-        var session = new RadialMenuSession(snapshot.Folders);
+        var placement = CreatePlacement(point);
+        var session = CreateSession(snapshot, placement.Layout);
 
         if (!string.IsNullOrWhiteSpace(initialRelativePath))
         {
@@ -125,13 +139,13 @@ internal sealed class RadialOverlayWindow : Window
             {
                 var selected = await selection
                     .WaitAsync(TimeSpan.FromMilliseconds(140), cancellationToken);
-                if (!selected) session = new RadialMenuSession(snapshot.Folders);
+                if (!selected) session = CreateSession(snapshot, placement.Layout);
             }
             catch (TimeoutException)
             {
                 // Keep the wheel instant on a sleeping HDD/removable disk.
                 // The abandoned lookup still warms the shared directory cache.
-                session = new RadialMenuSession(snapshot.Folders);
+                session = CreateSession(snapshot, placement.Layout);
             }
             catch (OperationCanceledException) { candidate.Dispose(); throw; }
             if (!ReferenceEquals(candidate, session)) candidate.Dispose();
@@ -143,7 +157,8 @@ internal sealed class RadialOverlayWindow : Window
 
     public async Task ShowDemoAsync(NativeScreenPoint point, FolderCatalogResult snapshot, string? startPath)
     {
-        var session = new RadialMenuSession(snapshot.Folders);
+        var placement = CreatePlacement(point);
+        var session = CreateSession(snapshot, placement.Layout);
         if (!string.IsNullOrWhiteSpace(startPath)) await session.SelectStartPathAsync(startPath);
         for (var ring = 0; ring < 2; ring++)
         {
@@ -155,14 +170,14 @@ internal sealed class RadialOverlayWindow : Window
         _sourceFiles = ["2026年度推广方案_客户终审确认版_09月17日.pptx"];
         _isDemo = true;
         _rootPath = snapshot.RootPath;
-        ShowCore(NativeDisplay.CreatePlacement(point, false), session, 1);
+        ShowCore(placement, session, 1);
     }
 
     public void ShowInvalid(NativeScreenPoint point)
     {
         _sourceFiles = [];
         _isDemo = false;
-        ShowCore(NativeDisplay.CreatePlacement(point, true), null, 0);
+        ShowCore(CreatePlacement(point, true), null, 0);
     }
 
     public void HideOverlay()
@@ -212,11 +227,11 @@ internal sealed class RadialOverlayWindow : Window
         string? initialRelativePath = null)
     {
         if (!IsVisible || _closing || _placement is null) return;
-        var session = new RadialMenuSession(snapshot.Folders);
+        var session = CreateSession(snapshot, _placement.Layout);
         _ = await session.SelectPathAsync(
             selectedRelativePath,
             initialRelativePath);
-        if (!IsVisible || _closing || _placement is null) return;
+        if (!IsVisible || _closing || _placement is null) { session.Dispose(); return; }
         _rootPath = snapshot.RootPath;
         _control.Configure(_placement.Layout, session, _sourceFiles.Count);
         _control.Focus();

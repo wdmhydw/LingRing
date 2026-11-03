@@ -47,6 +47,7 @@ public sealed class PrototypeOptionsTests
     [InlineData("--demo-onboarding")]
     [InlineData("--demo-root-choice")]
     [InlineData("--demo-tray-menu")]
+    [InlineData("--demo-display-settings")]
     public void Parse_VisualReviewModes_SuppressAutomaticOnboarding(string argument)
     {
         var options = PrototypeOptions.Parse([argument]);
@@ -57,7 +58,7 @@ public sealed class PrototypeOptionsTests
     [Theory]
     [InlineData("0", 0)]
     [InlineData("3", 3)]
-    [InlineData("99", 3)]
+    [InlineData("99", 4)]
     [InlineData("-5", 0)]
     public void Parse_DemoOnboardingPage_ClampsToAvailablePages(string value, int expected)
     {

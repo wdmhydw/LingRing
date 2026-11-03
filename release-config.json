@@ -10,7 +10,7 @@
   },
   "platforms": {
     "windows-x64": "ready",
-    "macos-arm64": "adaptation_required"
+    "macos-arm64": "not_selected"
   },
   "signing": "UNSIGNED",
   "licensing": { "enabled": false },

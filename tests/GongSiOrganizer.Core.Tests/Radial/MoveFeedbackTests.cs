@@ -168,7 +168,7 @@ public sealed class MoveFeedbackTests
                 feedback?.Complete(MoveFeedbackOutcome.Success, result.Moved.Count, result.TotalCount);
             };
             var point = NativeDisplay.GetPrimaryWorkAreaCenter();
-            var placement = NativeDisplay.CreatePlacement(point, false);
+            var placement = NativeDisplay.CreatePlacement(point, false, new RadialPreferences().DisplayOptions.RingWidth);
             overlay.ShowMenu(point, [source], new FolderCatalogResult(workspace.Root,
                 [new FolderMenuNode("目标", "target", [])], 1, 0));
             Pump(UiMotion.RingOpen + 80);
