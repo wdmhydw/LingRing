@@ -4,11 +4,13 @@
 
 同日方向修订：按用户截图反馈改为中文正立、列内从上往下、换列从左往右；英文和数字使用字头朝左的侧排。旧版沿切线旋转及下半圈反转已被替代。
 
+同日间距修订：按用户反馈收紧字距和列距。普通中文字的纵向步进约 13.75 DIP，列间距从 20 DIP 收到 16 DIP；保留既定字向、读序和滚动裁切保护。
+
 基于首次呼出优化提交 `992bebd`。该优化另外保存在 `codex/startup-latency`，本实验与已安装的 v0.6.5 各自独立。
 
 ## 试用入口
 
-打开项目下 `artifacts/readability-upright-20261103/demo/LingRing.ReadabilityDemo.exe`。这是使用本机 .NET 8 Windows Desktop Runtime 的 WPF 演示程序；整个 `demo` 目录需要放在一起。
+打开项目下 `artifacts/readability-compact-20261103/demo/LingRing.ReadabilityDemo.exe`。这是使用本机 .NET 8 Windows Desktop Runtime 的 WPF 演示程序；整个 `demo` 目录需要放在一起。
 
 默认进入「沿弧排字」，可直接操作真实轮盘控件：
 
@@ -41,10 +43,10 @@ Kurtenbach、Sellen 和 Buxton 的原始研究分别考察了菜单项目数、�
 | --- | ---: | ---: | ---: |
 | 原版四项、标准圆环 | 12 | 6 | 145 / 188 |
 | 六项横排、舒展圆环 | 18 | 4 | 192 / 274 |
-| 六项正立沿弧、舒展圆环 | 18 | 12 | 216 / 274 |
-| 六项自动、舒展圆环 | 18 | 12 | 234 / 274 |
+| 六项正立沿弧、舒展圆环 | 18 | 12 | 252 / 274 |
+| 六项自动、舒展圆环 | 18 | 12 | 253 / 274 |
 
-六项横排与六项正立沿弧使用相同尺寸和目录，正立沿弧多显示了 24 个实际字符。上一轮切线旋转方案为 253/274，本轮优先修正字向和读序，容量有所下降。原版与六项方案的数量和圆环宽度均不同，只能作为整体方案对照。容量结果不等同于阅读速度或误点率；真实手感仍待用户验证。
+六项横排与六项正立沿弧使用相同尺寸和目录，正立沿弧多显示了 60 个实际字符。正立方向首版为 216/274，本次收紧间距后增加到 252/274，完整名称数仍为 12/18。原版与六项方案的数量和圆环宽度均不同，只能作为整体方案对照。容量结果不等同于阅读速度或误点率；真实手感仍待用户验证。
 
 边角与最小窗口预览表明，空间受限时仍会截断名称；这也是保留数量调整、悬停全名和侧栏的原因。弧形排字当前主要针对中文、英文与数字混排；字素不会被拆开，但尚未覆盖需要复杂连字、双向排版的各类语言。
 
@@ -53,21 +55,22 @@ Kurtenbach、Sellen 和 Buxton 的原始研究分别考察了菜单项目数、�
 - 数量扩展贯穿会话、绘制、命中、蓝弧、键盘和连续滚轮队列；普通启动仍使用原版四项和原排版，实验配置只由独立 Demo 传入。
 - 每扇区文字结果缓存；滚动时文字锚点随扇区运动，每个字或英文数字片段在自己的锚点抵消旋转，屏幕字向保持固定。排版预留圆形包围范围，使滚动时仍位于扇区内。
 - 两侧按可见列的屏幕 X 从左到右排列，列内 Y 递增；圆顶、圆底采用沿弧排列的短竖列，避免读序在拐点折返。标点和换列不拆开字素，短年份不拆成零散数字。
+- 字符步进按实际阅读高度加 1.25 DIP 留白计算，中文字不再使用旋转包围圆的直径作为字距。列间距为 16 DIP；包围圆仅用于边界保护，字形仍逐项检查重叠。
 - 6/8 项的错峰时长压缩到原有 **280 ms** 展开预算内。
-- 完整 Release 回归 **258/258**；目录阅读专项共 **40 项**，本次增加 **21 项**，覆盖相邻扇区、顶底、整圈、读序、年份以及实际绘制变换中的字头方向。构建 0 警告、0 错误。
+- 完整 Release 回归 **258/258**；目录阅读专项共 **40 项**，方向修订增加 **21 项**，覆盖相邻扇区、顶底、整圈、读序、年份以及实际绘制变换中的字头方向。间距修订复用上述测试，构建 0 警告、0 错误。
 - 当前 EXE 的 **11 项原生交互检查**通过：八项容量、三步连续滚动及落点、第八项点击、多词搜索、侧栏进入/返回、搜索空态和边角减量。首轮 Demo 的真实文件系统读取与空目录检查沿用此前验证，本次未修改目录读取逻辑。
-- **11 张原生画面**覆盖五种预设、八项滚动中/结束、中英混排、短名、边角和最小窗口。截图使用内存目录。先集中检查，再一次修正顶底读序及年份，完成确认。
+- **11 张原生画面**覆盖五种预设、八项滚动中/结束、中英混排、短名、边角和最小窗口。截图使用内存目录。方向修订先集中检查并修正顶底读序及年份；间距修订重新生成截图，核对静态与滚动画面。
 
-当前证据目录：`artifacts/readability-upright-20261103/verified/`，含 `comparison.json`、`interaction-checks.json` 和 PNG。测试报告：`artifacts/readability-upright-20261103/tests/upright-final.trx`。上一轮 `artifacts/readability-demo-20261103/` 保留为历史，不作为当前方向方案的交付依据。
+当前证据目录：`artifacts/readability-compact-20261103/verified/`，含 `comparison.json`、`interaction-checks.json` 和 PNG。测试报告：`artifacts/readability-compact-20261103/tests/compact-final.trx`。`artifacts/readability-upright-20261103/` 与 `artifacts/readability-demo-20261103/` 保留为历史，不作为当前间距方案的交付依据。
 
 复现构建与截图：
 
 ```powershell
 $env:WINDIR = $env:SystemRoot
 dotnet restore tools/ReadabilityDemo/ReadabilityDemo.csproj --locked-mode -r win-x64
-dotnet build tools/ReadabilityDemo/ReadabilityDemo.csproj -c Release --no-restore -o artifacts/readability-upright-20261103/demo
+dotnet build tools/ReadabilityDemo/ReadabilityDemo.csproj -c Release --no-restore -o artifacts/readability-compact-20261103/demo
 dotnet test tests/GongSiOrganizer.Core.Tests/GongSiOrganizer.Core.Tests.csproj -c Release --no-restore
-& ./artifacts/readability-upright-20261103/demo/LingRing.ReadabilityDemo.exe --capture artifacts/readability-upright-20261103/recapture
+& ./artifacts/readability-compact-20261103/demo/LingRing.ReadabilityDemo.exe --capture artifacts/readability-compact-20261103/recapture
 ```
 
 本轮只交付本地实验，不发布、不合并。下一步由用户试用决定数量默认值、纯弧形或自动方向，以及侧栏是否作为按需展开的辅助入口。

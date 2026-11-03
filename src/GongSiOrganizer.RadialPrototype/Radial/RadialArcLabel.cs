@@ -12,13 +12,14 @@ internal sealed record ArcLabelGlyph(string Text, int Column, double ColumnX, Po
 internal static class RadialArcLabel
 {
     private const double Gap = 1.25;
-    private const double ColumnGap = RadialTypography.LineHeight + 2;
+    private const double ColumnGap = RadialTypography.FontSize + 3.5;
     private const double ToRadians = Math.PI / 180;
     private sealed record Unit(string Text, FormattedText TextLayout, Rect Ink, double Rotation, int Characters)
     {
         // An orientation-independent envelope also protects text while its
         // anchor rotates with the menu and its screen orientation stays fixed.
         public double Radius => Math.Sqrt(Ink.Width * Ink.Width + Ink.Height * Ink.Height) / 2 + 1;
+        public double ReadingHeight => Rotation == 0 ? Math.Max(RadialTypography.FontSize, Ink.Height) : Ink.Width;
     }
     private sealed record Column(double Radius, double Top, double Sweep, int Direction, double X);
     private sealed record Placement(Unit Unit, int Column, double ColumnX, Point Anchor, Geometry Box);
@@ -174,8 +175,10 @@ internal static class RadialArcLabel
         for (var columnIndex = 0; columnIndex < columns.Count && used < units.Count; columnIndex++)
         {
             var column = columns[columnIndex];
-            var available = column.Sweep * ToRadians - 6 / column.Radius;
-            double Advance(Unit unit) => 2 * Math.Asin(Math.Min(.99, (unit.Radius + Gap / 2) / column.Radius));
+            var top = RadialGeometry.Polar(center, column.Radius, column.Top).Y;
+            var bottom = RadialGeometry.Polar(center, column.Radius, column.Top + column.Direction * column.Sweep).Y;
+            var available = bottom - top - 6;
+            double Advance(Unit unit) => unit.ReadingHeight + Gap;
             var count = 0;
             var extent = 0d;
             while (used + count < units.Count && extent + Advance(units[used + count]) <= available)
@@ -185,14 +188,19 @@ internal static class RadialArcLabel
             while (count > 0)
             {
                 var batch = new List<Placement>();
-                var cursor = (column.Sweep * ToRadians - extent) / 2;
+                var cursor = (top + bottom - extent) / 2;
                 for (var index = 0; index < count; index++)
                 {
                     var unit = units[used + index];
                     var advance = Advance(unit);
-                    var angle = column.Top + column.Direction * (cursor + advance / 2) / ToRadians;
+                    var y = cursor + advance / 2;
                     cursor += advance;
-                    var anchor = RadialGeometry.Polar(center, column.Radius, angle);
+                    // Keep normal vertical leading between upright glyphs.
+                    // Only X follows the circle; the rotation envelope is for
+                    // clipping, not the typographic advance of each character.
+                    var dy = y - center.Y;
+                    var x = center.X + column.Direction * Math.Sqrt(Math.Max(0, column.Radius * column.Radius - dy * dy));
+                    var anchor = new Point(x, y);
                     var envelope = new EllipseGeometry(anchor, unit.Radius, unit.Radius);
                     var sideways = unit.Rotation != 0;
                     var width = (sideways ? unit.Ink.Height : unit.Ink.Width) + 1;
@@ -229,7 +237,7 @@ internal static class RadialArcLabel
             var middleY = space.Center.Y + side * Math.Sqrt(radius * radius - dx * dx);
             var count = 0;
             var extent = 0d;
-            double Advance(Unit unit) => 2 * unit.Radius + Gap;
+            double Advance(Unit unit) => unit.ReadingHeight + Gap;
             while (used + count < units.Count && extent + Advance(units[used + count]) <= available)
                 extent += Advance(units[used + count++]);
             while (count > 0)
