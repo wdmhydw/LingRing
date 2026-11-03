@@ -15,19 +15,27 @@ public sealed class RadialMenuSession : IDisposable
     private readonly Dictionary<AsyncFolderMenuNodeList, FolderMenuNode> _observedLists = [];
     private readonly SynchronizationContext? _synchronizationContext;
     private readonly int[] _offsets = [0, 0, 0];
+    private readonly int[] _capacities;
     private int _anchorDepth;
     private bool _outerSelectionHeld;
     private bool _outerPreviewPending;
     private bool _disposed;
 
-    public RadialMenuSession(IReadOnlyList<FolderMenuNode> rootItems)
+    public RadialMenuSession(IReadOnlyList<FolderMenuNode> rootItems, IReadOnlyList<int>? capacities = null)
     {
         _rootItems = rootItems;
+        if (capacities is not null && (capacities.Count != 3 || capacities.Any(value => value is < 1 or > RadialLayout.MaximumSlotsPerRing)))
+            throw new ArgumentOutOfRangeException(nameof(capacities));
+        _capacities = capacities?.ToArray() ?? [4, 4, 4];
         _synchronizationContext = SynchronizationContext.Current;
     }
 
+    public int GetCapacity(int ringIndex) { ValidateRingIndex(ringIndex); return _capacities[ringIndex]; }
+    public IReadOnlyList<FolderMenuNode> GetItemsForRing(int ringIndex) { ValidateRingIndex(ringIndex); return GetRingSource(ringIndex); }
+
     public IReadOnlyList<FolderMenuNode> Path => _path;
     public FolderMenuNode? CurrentDestination => _path.LastOrDefault();
+    internal string? VisibleAnchorPath => _anchorDepth == 0 ? null : _path[_anchorDepth - 1].RelativePath;
     public bool IsCurrentChildrenLoading =>
         CurrentDestination?.Children is AsyncFolderMenuNodeList { IsLoading: true };
     public string? CurrentChildrenError =>
@@ -51,11 +59,11 @@ public sealed class RadialMenuSession : IDisposable
         var source = GetRingSource(ringIndex);
         var selected = GetSelectedNode(ringIndex)?.RelativePath;
         if (source.Count == 0)
-            return new RadialRingView([null, null, null, null], 0, 0, selected);
+            return new RadialRingView(new FolderMenuNode?[_capacities[ringIndex]], 0, 0, selected);
 
         var offset = PositiveModulo(_offsets[ringIndex], source.Count);
-        var slots = new FolderMenuNode?[RadialLayout.SlotsPerRing];
-        var visibleCount = Math.Min(source.Count, RadialLayout.SlotsPerRing);
+        var slots = new FolderMenuNode?[_capacities[ringIndex]];
+        var visibleCount = Math.Min(source.Count, slots.Length);
         for (var slot = 0; slot < visibleCount; slot++)
             slots[slot] = source[(offset + slot) % source.Count];
 
@@ -64,7 +72,8 @@ public sealed class RadialMenuSession : IDisposable
 
     public FolderMenuNode? GetFolder(int ringIndex, int slotIndex)
     {
-        if (slotIndex is < 0 or >= RadialLayout.SlotsPerRing) return null;
+        ValidateRingIndex(ringIndex);
+        if (slotIndex < 0 || slotIndex >= _capacities[ringIndex]) return null;
         return GetRingView(ringIndex).Slots[slotIndex];
     }
 
@@ -154,7 +163,7 @@ public sealed class RadialMenuSession : IDisposable
     {
         ValidateRingIndex(ringIndex);
         var source = GetRingSource(ringIndex);
-        if (source.Count <= RadialLayout.SlotsPerRing) return false;
+        if (source.Count <= _capacities[ringIndex]) return false;
         _offsets[ringIndex] = PositiveModulo(_offsets[ringIndex] + Math.Sign(direction), source.Count);
         return true;
     }

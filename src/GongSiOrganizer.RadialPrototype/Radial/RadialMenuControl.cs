@@ -59,6 +59,7 @@ internal sealed class RadialMenuControl : FrameworkElement
     private readonly Dictionary<Geometry, RadialCellContent> _contentCache = [];
     private sealed record RenderedLabel(RadialCellLabel Layout, FormattedText? Text, Point Origin);
     private readonly Dictionary<(string Name, RadialCellContent Content, double PixelsPerDip), RenderedLabel> _labelCache = [];
+    private readonly Dictionary<(string Name, Geometry Shape, double Dpi), ExperimentalLabel> _experimentalLabels = [];
     private RadialLayoutPlan? _layout;
     private RadialMenuSession? _session;
     private RadialHit _visualHover = RadialHit.None;
@@ -121,6 +122,10 @@ internal sealed class RadialMenuControl : FrameworkElement
     public event Action? DismissRequested;
     public event Action<FolderMenuNode?, Point>? NameTipRequested;
     public event Action? NameTipDismissRequested;
+    internal event Action? StateChanged;
+    internal RadialHit ReadingHit => _visualHover;
+    internal RadialDisplayOptions DisplayOptions { get; set; } = new();
+    internal bool IsSelectionDemo { get; set; }
 
     public void Configure(
         RadialLayoutPlan layout,
@@ -150,6 +155,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         CancelIntent(true);
         _contentCache.Clear();
         _labelCache.Clear();
+        _experimentalLabels.Clear();
         _geometryCache.Clear();
         _hoverTimer.Stop();
         InvalidateVisual();
@@ -476,7 +482,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         UpdateDetails();
     }
 
-    private void UpdateDetails() => InvalidateVisual();
+    private void UpdateDetails() { InvalidateVisual(); StateChanged?.Invoke(); }
 
     private void DismissNameTip()
     {
@@ -503,7 +509,9 @@ internal sealed class RadialMenuControl : FrameworkElement
         var end = start + sweep - 2 * gap;
         var geometry = CellGeometry(_layout, ring.InnerRadius, ring.OuterRadius, start, end);
         var content = CellContent(geometry, Polar(_layout.LocalCenter, (ring.InnerRadius + ring.OuterRadius) / 2, (start + end) / 2));
-        if (FormatLabel(folder.DisplayName, content).Layout.IsTruncated)
+        if (DisplayOptions.EnhancedLabels
+            ? ExperimentalLabelFor(folder.DisplayName, geometry, content.Center, ring, start, end).IsTruncated
+            : FormatLabel(folder.DisplayName, content).Layout.IsTruncated)
             NameTipRequested?.Invoke(folder, _lastPointer);
     }
 
@@ -546,6 +554,50 @@ internal sealed class RadialMenuControl : FrameworkElement
         var top = ink.IsEmpty ? layout.Bounds.Top : content.Center.Y - ink.Top - ink.Height / 2;
         var left = ink.IsEmpty ? layout.Bounds.Left : content.Center.X - ink.Left - ink.Width / 2;
         return _labelCache[key] = new(layout, formatted, new Point(left, top));
+    }
+
+    private ExperimentalLabel ExperimentalLabelFor(string name, Geometry shape, Point center, RadialRing ring, double start, double end)
+    {
+        var key = (name, shape, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        if (_experimentalLabels.TryGetValue(key, out var label)) return label;
+        if (_experimentalLabels.Count > 256) _experimentalLabels.Clear();
+        return _experimentalLabels[key] = RadialExperimentalLabel.Create(name, shape, center,
+            DisplayOptions.LabelDirection, key.Item3, new RadialLabelArc(_layout!.LocalCenter, ring.InnerRadius, ring.OuterRadius, start, end));
+    }
+
+    internal IReadOnlyList<RadialLabelMetric> MeasureVisibleLabels()
+    {
+        var result = new List<RadialLabelMetric>();
+        if (_layout is null || _session is null || _layout.IsInvalidTarget) return result;
+        for (var ringIndex = 0; ringIndex < 3; ringIndex++)
+        {
+            var ring = _layout.Rings[ringIndex];
+            var count = VisibleSlots(ringIndex);
+            for (var slot = 0; slot < count; slot++)
+            {
+                var folder = _session.GetFolder(ringIndex, slot);
+                if (folder is null) continue;
+                var sweep = RadialLayout.SlotSweep(ring, count);
+                var gap = RadialLayout.CellGap(ring, count);
+                var start = RadialLayout.SlotStart(ring, count) + slot * sweep + gap;
+                var end = start + sweep - 2 * gap;
+                var shape = CellGeometry(_layout, ring.InnerRadius, ring.OuterRadius, start, end);
+                var content = CellContent(shape, Polar(_layout.LocalCenter, (ring.InnerRadius + ring.OuterRadius) / 2, (start + end) / 2));
+                var total = RadialExperimentalLabel.TextElements(folder.DisplayName).Count;
+                if (DisplayOptions.EnhancedLabels)
+                {
+                    var label = ExperimentalLabelFor(folder.DisplayName, shape, content.Center, ring, start, end);
+                    result.Add(new(ringIndex, slot, label.VisibleCharacters, total, label.IsTruncated, label.Direction.ToString()));
+                }
+                else
+                {
+                    var label = FormatLabel(folder.DisplayName, content).Layout;
+                    result.Add(new(ringIndex, slot, RadialExperimentalLabel.CountVisible([label.Text.Replace("\n", "")]), total,
+                        label.IsTruncated, "Horizontal"));
+                }
+            }
+        }
+        return result;
     }
 
     public void PlayOpen()
@@ -619,7 +671,8 @@ internal sealed class RadialMenuControl : FrameworkElement
             var slot = Math.Max(0, _visualHover.SlotIndex);
             if (e.Key is Key.Up or Key.Down)
                 ring = Math.Clamp(ring + (e.Key == Key.Down ? 1 : -1), 0, 2);
-            else slot = (slot + (e.Key is Key.Right or Key.Down ? 1 : 3)) % Math.Max(1, VisibleSlots(ring));
+            else slot = (slot + (e.Key == Key.Right ? 1 : -1) + Math.Max(1, VisibleSlots(ring))) % Math.Max(1, VisibleSlots(ring));
+            slot = Math.Min(slot, Math.Max(0, VisibleSlots(ring) - 1));
             if (_session.GetFolder(ring, slot) is not null) { StartHoverTransition(new RadialHit(ring, slot, false)); UpdateDetails(); }
             e.Handled = true;
         }
@@ -648,8 +701,8 @@ internal sealed class RadialMenuControl : FrameworkElement
                 hasTransitionDifference)
             {
                 if (ringIndex == _wheelTransitionRingIndex &&
-                    previous.TotalCount > RadialLayout.SlotsPerRing &&
-                    current.TotalCount > RadialLayout.SlotsPerRing)
+                    previous.TotalCount > previous.Slots.Count &&
+                    current.TotalCount > current.Slots.Count && previous.Slots.Count == current.Slots.Count)
                 {
                     DrawWheelRingTransition(
                         drawingContext,
@@ -695,12 +748,12 @@ internal sealed class RadialMenuControl : FrameworkElement
         double progress)
     {
         var ring = layout.Rings[ringIndex];
-        var slotSweep = ring.SweepAngle / RadialLayout.SlotsPerRing;
+        var slotSweep = ring.SweepAngle / current.Slots.Count;
         var currentOffset = _ringTransitionDirection * slotSweep * (1 - progress);
         var outgoingOffset = -_ringTransitionDirection * slotSweep * progress;
         var outgoingSlot = _ringTransitionDirection > 0
             ? 0
-            : RadialLayout.SlotsPerRing - 1;
+            : previous.Slots.Count - 1;
 
         drawingContext.PushClip(CreateRingClip(layout, ring));
         DrawRingView(
@@ -726,7 +779,7 @@ internal sealed class RadialMenuControl : FrameworkElement
                 ring,
                 ringIndex,
                 outgoingSlot,
-                RadialLayout.SlotsPerRing,
+                previous.Slots.Count,
                 outgoingFolder,
                 0,
                 string.Equals(
@@ -752,7 +805,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         double? revealProgress = null)
     {
         if (view.TotalCount == 0 || opacity <= 0.001) return;
-        var visibleCount = Math.Min(view.TotalCount, RadialLayout.SlotsPerRing);
+        var visibleCount = Math.Min(view.TotalCount, view.Slots.Count);
         drawingContext.PushOpacity(Math.Clamp(opacity, 0, 1));
         drawingContext.PushTransform(new ScaleTransform(
             scale,
@@ -814,7 +867,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         // opening clock made them appear at full size immediately.
         var elapsed = (revealProgress ?? OpenProgress) * UiMotion.RingOpen;
         var opening = UiMotion.Enabled
-            ? UiMotion.RingEase((elapsed - slot * UiMotion.RingSlotStagger) / UiMotion.RingSlotDuration)
+            ? UiMotion.RingEase((elapsed - UiMotion.RingSlotDelay(slot, visibleCount)) / UiMotion.RingSlotDuration)
             : 1;
         drawingContext.PushOpacity(opening);
         var openScale = .88 + .12 * opening;
@@ -854,11 +907,21 @@ internal sealed class RadialMenuControl : FrameworkElement
             drawingContext.PushClip(geometry);
             var center = Polar(layout.LocalCenter, (inner + outer) / 2, midAngle);
             var content = CellContent(geometry, center);
-            var label = FormatLabel(folder.DisplayName, content);
-            if (angleOffset != 0)
+            var experimental = DisplayOptions.EnhancedLabels
+                ? ExperimentalLabelFor(folder.DisplayName, geometry, content.Center, ring, start, end) : null;
+            // Curved text shares the cell's circular path during rotation.
+            // Only horizontal labels need their orientation counter-rotated.
+            var keepHorizontal = angleOffset != 0 && experimental?.Direction != RadialLabelDirection.Arc;
+            if (keepHorizontal)
                 drawingContext.PushTransform(new RotateTransform(-angleOffset, content.Center.X, content.Center.Y));
-            if (label.Text is not null) drawingContext.DrawText(label.Text, label.Origin);
-            if (angleOffset != 0) drawingContext.Pop();
+            if (experimental is not null)
+                drawingContext.DrawDrawing(experimental.Drawing);
+            else
+            {
+                var label = FormatLabel(folder.DisplayName, content);
+                if (label.Text is not null) drawingContext.DrawText(label.Text, label.Origin);
+            }
+            if (keepHorizontal) drawingContext.Pop();
             drawingContext.Pop();
         }
         if (angleOffset != 0) drawingContext.Pop();
@@ -878,7 +941,7 @@ internal sealed class RadialMenuControl : FrameworkElement
             new Rect(0, 0, layout.WindowBounds.Width, layout.WindowBounds.Height));
         if (visible.Width < radius * 1.8 || visible.Height < radius * 1.8)
         {
-            DrawCenteredText(dc, layout.IsInvalidTarget ? "中键选文件" : session?.CurrentDestination is null ? "选择" : "移动",
+            DrawCenteredText(dc, layout.IsInvalidTarget ? "中键选文件" : session?.CurrentDestination is null ? "选择" : IsSelectionDemo ? "记录" : "移动",
                 visible.Left + visible.Width / 2, visible.Top + visible.Height / 2 - 8,
                 Math.Max(18, visible.Width - 10), 11, LabelTypeface, Color.FromRgb(37, 99, 184), 16, true);
             return;
@@ -889,10 +952,10 @@ internal sealed class RadialMenuControl : FrameworkElement
                 radius * 1.6, 11, RegularTypeface, Color.FromRgb(58, 78, 101), 17, false);
             return;
         }
-        DrawCenteredText(dc, _sourceItemCount > 1 ? $"{_sourceItemCount} 个项目" : "1 个文件",
+        DrawCenteredText(dc, IsSelectionDemo ? "目录演示" : _sourceItemCount > 1 ? $"{_sourceItemCount} 个项目" : "1 个文件",
             center.X, center.Y - 27, radius * 1.6, 10.5, RegularTypeface,
             Color.FromRgb(101, 118, 139), 16, false);
-        DrawCenteredText(dc, session?.CurrentDestination is null ? "选择目录" : "确认移动",
+        DrawCenteredText(dc, session?.CurrentDestination is null ? "选择目录" : IsSelectionDemo ? "记录目标" : "确认移动",
             center.X, center.Y - 7, radius * 1.65, 12.5, LabelTypeface,
             Color.FromRgb(37, 99, 184), 19, false);
         DrawCenteredText(dc, session?.CurrentDestination?.DisplayName ?? "可先浏览",
@@ -995,7 +1058,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         for (var ringIndex = views.Count - 1; ringIndex >= 0; ringIndex--)
         {
             var view = views[ringIndex];
-            if (view.TotalCount > RadialLayout.SlotsPerRing)
+            if (view.TotalCount > view.Slots.Count)
                 return ringIndex;
         }
 
@@ -1015,7 +1078,7 @@ internal sealed class RadialMenuControl : FrameworkElement
             else
                 _queuedWheelSteps = direction;
             _queuedWheelRingIndex = ring;
-            _queuedWheelSlot = Math.Clamp(slot, 0, RadialLayout.SlotsPerRing - 1);
+            _queuedWheelSlot = Math.Clamp(slot, 0, _session.GetCapacity(ring) - 1);
             return true;
         }
 
@@ -1157,7 +1220,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         // Capture the current picture before retargeting, including a partly faded older cell.
         var origins = new Dictionary<(int Ring, int Slot), double>();
         for (var ring = 0; ring < 3; ring++)
-            for (var slot = 0; slot < RadialLayout.SlotsPerRing; slot++)
+            for (var slot = 0; slot < (_session?.GetCapacity(ring) ?? 4); slot++)
             {
                 var amount = GetHoverAmount(ring, slot);
                 if (amount > .001) origins[(ring, slot)] = amount;
@@ -1165,6 +1228,7 @@ internal sealed class RadialMenuControl : FrameworkElement
         _hoverOrigins.Clear();
         foreach (var pair in origins) _hoverOrigins[pair.Key] = pair.Value;
         _visualHover = next;
+        StateChanged?.Invoke();
         UpdateEntryBreathing();
         DismissNameTip();
         if (next.HasValue) _nameTimer.Start();
@@ -1336,7 +1400,7 @@ internal sealed class RadialMenuControl : FrameworkElement
 
     private int VisibleSlots(int ringIndex) => _session is null
         ? 0
-        : Math.Min(_session.GetRingView(ringIndex).TotalCount, RadialLayout.SlotsPerRing);
+        : Math.Min(_session.GetRingView(ringIndex).TotalCount, _session.GetCapacity(ringIndex));
 
     private static double Distance(Point left, Point right)
     {

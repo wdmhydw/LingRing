@@ -17,6 +17,9 @@ internal static class UiMotion
     public const int RingSlotStagger = 10;
     public const int RingOpen = RingSlotDuration + 3 * RingSlotStagger;
 
+    public static double RingSlotDelay(int slot, int visibleCount) =>
+        slot * Math.Min(RingSlotStagger, (RingOpen - RingSlotDuration) / (double)Math.Max(1, visibleCount - 1));
+
     public static double RingEase(double progress)
     {
         var t = Math.Clamp(progress, 0, 1);

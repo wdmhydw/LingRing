@@ -34,7 +34,7 @@ internal static class RadialInteractionPolicy
         var sweep = RadialLayout.SlotSweep(ring, visibleSlots);
         var slotStart = RadialLayout.SlotStart(ring, visibleSlots) + hit.SlotIndex * sweep;
         var gap = 3 / ((ring.InnerRadius + ring.OuterRadius) / 2) * 180 / Math.PI;
-        var roundedEdge = gap + Math.Asin(11 / (ring.OuterRadius - 11)) * 180 / Math.PI + 1.2;
+        var roundedEdge = Math.Min(sweep * .3, gap + Math.Asin(11 / (ring.OuterRadius - 11)) * 180 / Math.PI + 1.2);
         var start = Math.Max(slotStart + roundedEdge, slotStart + sweep / 2 - 12 - sweep * 28 / 90);
         var end = Math.Min(start + sweep * 28 / 90, slotStart + sweep - roundedEdge);
         return (ring.OuterRadius - 2, start, Math.Max(start + 1, end));
@@ -73,7 +73,7 @@ internal static class RadialInteractionPolicy
         if (hit.RingIndex < 0 || hit.RingIndex >= views.Count)
             return -1;
 
-        return views[hit.RingIndex].TotalCount > RadialLayout.SlotsPerRing
+        return views[hit.RingIndex].TotalCount > views[hit.RingIndex].Slots.Count
             ? hit.RingIndex
             : -1;
     }
