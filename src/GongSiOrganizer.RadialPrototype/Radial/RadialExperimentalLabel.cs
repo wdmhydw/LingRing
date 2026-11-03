@@ -9,7 +9,8 @@ using FlowDirection = System.Windows.FlowDirection;
 namespace GongSiOrganizer.RadialPrototype.Radial;
 
 internal sealed record ExperimentalLabel(DrawingGroup Drawing, bool IsTruncated, int VisibleCharacters,
-    RadialLabelDirection Direction, Rect Bounds, IReadOnlyList<Geometry>? InkBoxes = null);
+    RadialLabelDirection Direction, Rect Bounds, IReadOnlyList<Geometry>? InkBoxes = null,
+    IReadOnlyList<ArcLabelGlyph>? ArcGlyphs = null);
 
 internal readonly record struct RadialLabelArc(RadialPoint Center, double Inner, double Outer, double Start, double End);
 

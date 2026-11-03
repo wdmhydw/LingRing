@@ -909,13 +909,16 @@ internal sealed class RadialMenuControl : FrameworkElement
             var content = CellContent(geometry, center);
             var experimental = DisplayOptions.EnhancedLabels
                 ? ExperimentalLabelFor(folder.DisplayName, geometry, content.Center, ring, start, end) : null;
-            // Curved text shares the cell's circular path during rotation.
-            // Only horizontal labels need their orientation counter-rotated.
+            // Arc labels compensate each glyph at its own anchor; horizontal
+            // labels can compensate their shared center as before.
             var keepHorizontal = angleOffset != 0 && experimental?.Direction != RadialLabelDirection.Arc;
             if (keepHorizontal)
                 drawingContext.PushTransform(new RotateTransform(-angleOffset, content.Center.X, content.Center.Y));
             if (experimental is not null)
-                drawingContext.DrawDrawing(experimental.Drawing);
+            {
+                if (experimental.Direction == RadialLabelDirection.Arc) RadialArcLabel.Draw(drawingContext, experimental, angleOffset);
+                else drawingContext.DrawDrawing(experimental.Drawing);
+            }
             else
             {
                 var label = FormatLabel(folder.DisplayName, content);

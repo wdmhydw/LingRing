@@ -1,3 +1,12 @@
+# 2026-11-03 沿弧文字的字向与读序修订
+
+- 用户确认弧线布局，但要求中文正立、列内从上向下、换列从左向右；英文和数字字头朝左。修订固定为中文 0°、英文数字 -90°，移除上下半圈翻转规则。
+- 右上/右下和左上/左下采用统一读序；顶底用沿弧排列的短竖列。短年份保持整体，滚动时各字锚点移动、字向固定，字形包围范围保持在扇区内。
+- 完整 Release **258/258**，新增方向专项 **21 项**；当前程序的 **11 项** 原生交互检查通过，构建 0 警告/0 错误。画面集中检查后修正顶底读序和年份，确认截图覆盖边角、混排与连续滚动。
+- 新试用入口：`artifacts/readability-upright-20261103/demo/LingRing.ReadabilityDemo.exe`；代码仍在 `codex/directory-readability-demo`，待用户试用后决定合并。当前证据和容量对照见 [实验记录](DIRECTORY_READABILITY_DEMO_2026-11-03.md)。
+
+---
+
 # 2026-11-03 目录数量与沿弧排字（独立 Demo）
 
 - 分支 `codex/directory-readability-demo`，基于首次呼出优化提交 `992bebd`；尚未合并。独立入口为 `artifacts/readability-demo-20261103/demo/LingRing.ReadabilityDemo.exe`，沿用本机 .NET 8 Windows Desktop Runtime。
